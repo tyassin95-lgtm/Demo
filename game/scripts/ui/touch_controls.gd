@@ -55,6 +55,23 @@ func _ready() -> void:
 	Settings.changed.connect(func(_k: String) -> void: queue_redraw())
 
 
+## Clears all touch state (pause, focus loss) so nothing stays "held".
+func reset() -> void:
+	_stick_touch = -1
+	stick_active = false
+	move_vector = Vector2.ZERO
+	_look_touches.clear()
+	_button_touches.clear()
+	for k in _held:
+		_held[k] = false
+	queue_redraw()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
+		reset()
+
+
 # --- Queries used by the player ----------------------------------------------------
 
 func consume(name: String) -> bool:

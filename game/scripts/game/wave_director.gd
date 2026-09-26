@@ -141,8 +141,9 @@ func _spawn(kind_name: String) -> void:
 		"brute":
 			k = Enemy.Kind.BRUTE
 	e.setup(k, _difficulty())
+	# Position before entering the tree so spawn effects play at the right place.
+	e.position = _pick_spawn()
 	arena.add_child(e)
-	e.global_position = _pick_spawn()
 	if Game.player and is_instance_valid(Game.player):
 		var to: Vector3 = Game.player.global_position - e.global_position
 		e.facing = Actor.yaw_from_dir(Vector3(to.x, 0, to.z).normalized())
@@ -154,9 +155,9 @@ func _spawn_dummy(i: int) -> void:
 	e.setup(Enemy.Kind.GUNNER if i == 2 else Enemy.Kind.STRIKER, 1.0)
 	e.passive = true
 	e.respawn_training = true
-	arena.add_child(e)
 	var pos := [Vector3(-5, 0.1, 4), Vector3(5, 0.1, 4), Vector3(0, 0.1, -16)]
-	e.global_position = pos[i]
+	e.position = pos[i]
+	arena.add_child(e)
 	e.set_meta("dummy_slot", i)
 	alive.append(e)
 

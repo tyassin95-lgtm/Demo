@@ -63,6 +63,10 @@ func _process(_delta: float) -> void:
 	if debug_args.is_empty():
 		return
 	_frame += 1
+	if debug_args.has("nav-test") and player and is_instance_valid(player) and not has_node("NavTest"):
+		var nt: Node = load("res://scripts/debug/nav_test.gd").new()
+		nt.name = "NavTest"
+		add_child(nt)
 	if debug_args.has("touch-test") and player and is_instance_valid(player) and not has_node("TouchTest"):
 		var tt: Node = load("res://scripts/debug/touch_test.gd").new()
 		tt.name = "TouchTest"
@@ -86,6 +90,34 @@ func _process(_delta: float) -> void:
 			Performance.get_monitor(Performance.OBJECT_NODE_COUNT),
 			Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0,
 			Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0])
+	if debug_args.has("ui-tour") and player and is_instance_valid(player):
+		var arena := get_tree().current_scene
+		if _frame == 40:
+			arena.pause_menu.open()
+		elif _frame == 55:
+			arena.pause_menu._open_settings()
+		elif _frame == 70:
+			arena.pause_menu._resume()
+			player.health = 1.0
+			var h := HitInfo.make(50.0, null, Vector3.FORWARD, HitInfo.Reaction.KNOCKDOWN)
+			player.take_hit(h)
+	if debug_args.has("flow-test"):
+		match _frame:
+			60:
+				print("[flow] start waves from ", get_tree().current_scene.name)
+				start_mode(Mode.WAVES)
+			300:
+				print("[flow] in ", get_tree().current_scene.name, " actors=", actors.size(), " -> menu")
+				goto_scene("res://scenes/main_menu.tscn")
+			420:
+				print("[flow] in ", get_tree().current_scene.name, " -> training")
+				start_mode(Mode.TRAINING)
+			700:
+				print("[flow] in ", get_tree().current_scene.name, " actors=", actors.size(), " -> retry")
+				start_mode(mode)
+			900:
+				print("[flow] in ", get_tree().current_scene.name, " actors=", actors.size(), " done")
+				get_tree().quit()
 	if debug_args.has("quit-frame") and _frame >= int(debug_args["quit-frame"]):
 		get_tree().quit()
 

@@ -78,6 +78,8 @@ var _buffer := {"jump": 0.0, "dash": 0.0, "attack": 0.0, "special": 0.0}
 var _last_wall_normal := Vector3.ZERO
 var _last_wall_time := -10.0
 var _step_timer := 0.0
+## Set by jump pads: no air drag until landing so ballistic arcs stay exact.
+var _pad_flight := false
 var _land_anim_cd := 0.0
 
 
@@ -313,7 +315,7 @@ func _update_normal(dt: float) -> void:
 		if wish.length() > 0.1:
 			var max_air := maxf(hv.length(), RUN_SPEED * speed_mult)
 			hv = hv.move_toward(wish * max_air, AIR_ACCEL * dt)
-		else:
+		elif not _pad_flight:
 			hv = hv.move_toward(Vector3.ZERO, AIR_DRAG * dt)
 		velocity.x = hv.x
 		velocity.z = hv.z
@@ -691,6 +693,7 @@ func _update_attack(dt: float) -> void:
 
 func _on_landed(fall_speed: float) -> void:
 	super._on_landed(fall_speed)
+	_pad_flight = false
 	if state == State.ATTACK and weapons.plunging:
 		weapons.on_plunge_landed()
 		return
@@ -793,6 +796,7 @@ func launch(v: Vector3) -> void:
 		set_state(State.NORMAL)
 	velocity = v
 	jumped = false
+	_pad_flight = true
 	air_dashes = 1
 	air_attacks = 0
 	wallrun_timer = 0.0

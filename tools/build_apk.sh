@@ -35,7 +35,7 @@ fi
 #    display with Vulkan when one is available; otherwise fall back to headless.
 godot --headless --path . --import >/dev/null 2>&1 || true
 if command -v xvfb-run >/dev/null 2>&1; then
-  xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver vulkan --export-release "Android" "$OUT/NeonRift.apk"
+  xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-method mobile --export-release "Android" "$OUT/NeonRift.apk"
 else
   godot --headless --path . --export-release "Android" "$OUT/NeonRift.apk"
 fi

@@ -181,6 +181,8 @@ func _actor_update(dt: float) -> void:
 		return
 	if _update_reaction_states(dt):
 		_laser.visible = false
+		if state == State.KNOCKDOWN or state == State.DOWN:
+			super_armor = false
 		if ai == AI.WINDUP:
 			ai = AI.CIRCLE
 			_release_token()

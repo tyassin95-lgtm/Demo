@@ -19,11 +19,9 @@ const GUN_GRIP_POINT := {
 	"res://assets/weapons/Gun_Rifle.gltf": Vector3(0.03, -0.03, 0.0),
 	"res://assets/weapons/Gun_Revolver.gltf": Vector3(0.01, -0.01, 0.0),
 	"res://assets/weapons/Gun_Sniper.gltf": Vector3(0.05, -0.04, 0.0),
-	"res://assets/weapons/Gun_Pistol.gltf": Vector3(0.05, -0.03, 0.0),
 }
 const GUN_EMISSIVE := {
 	"res://assets/weapons/Gun_Rifle.gltf": "res://assets/weapons/T_Guns_Batch1_Emissive.png",
-	"res://assets/weapons/Gun_Pistol.gltf": "res://assets/weapons/T_Guns_Batch1_Emissive.png",
 	"res://assets/weapons/Gun_Revolver.gltf": "res://assets/weapons/T_Guns_Batch2_Emissive.png",
 	"res://assets/weapons/Gun_Sniper.gltf": "res://assets/weapons/T_Guns_Batch2_Emissive.png",
 }

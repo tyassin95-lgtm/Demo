@@ -34,6 +34,21 @@ var _heartbeat_t := 0.0
 var _last_hp := -1.0
 var _od_flash := 0.0
 var _speed_amount := 0.0
+const TIPS := [
+	"Push the stick to the edge to SPRINT (uses SP)",
+	"Press JUMP next to a wall to WALL-KICK — chain them between walls",
+	"Sprint along a wall in mid-air to WALL-RUN, then jump off",
+	"DASH has invulnerability frames: dodge through attacks and bolts",
+	"ATTACK while sprinting or dashing for a lunging DASH SLASH",
+	"In the air: ATTACK, then ATTACK again to PLUNGE",
+	"Cancel attack recovery with DASH or JUMP to keep the pressure on",
+	"Hold ATTACK and drag to aim while firing",
+	"Scatter Cannon SPECIAL: RECOIL JUMP high into the air",
+	"Jump pads launch you onto the towers and walkways",
+	"Deal damage to fill OVERDRIVE, then tap the lightning button",
+	"Watch for the red ! — enemies telegraph their attacks",
+]
+var _tip_t := 0.0
 ## Recent damage directions: [world_dir: Vector3, time_left: float]
 var _dmg_dirs: Array = []
 
@@ -130,6 +145,7 @@ func _process(delta: float) -> void:
 		d[1] = float(d[1]) - delta * 0.9
 	_dmg_dirs = _dmg_dirs.filter(func(d: Array) -> bool: return d[1] > 0.0)
 	_od_flash += delta
+	_tip_t += delta
 	# Low health pulse + heartbeat.
 	var low := hp < 0.3 and player.is_alive()
 	_low_hp_t += delta
@@ -195,6 +211,8 @@ func _draw() -> void:
 	_draw_crosshair()
 	_draw_enemy_bars()
 	_draw_wave_info()
+	if director and director.training:
+		_draw_tip()
 	if Settings.get_value("show_fps"):
 		draw_string(_font, Vector2(size.x * 0.5 - 40, size.y - 12), "%d FPS" % Engine.get_frames_per_second(), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1, 1, 1, 0.7))
 
@@ -346,6 +364,16 @@ func _draw_enemy_bars() -> void:
 			var ang := d2.angle()
 			var tri := PackedVector2Array([edge + Vector2(16, 0).rotated(ang), edge + Vector2(-8, 10).rotated(ang), edge + Vector2(-8, -10).rotated(ang)])
 			draw_colored_polygon(tri, Color(ic.r, ic.g, ic.b, 0.85))
+
+
+func _draw_tip() -> void:
+	var idx := int(_tip_t / 6.0) % TIPS.size()
+	var phase := fmod(_tip_t, 6.0)
+	var a := clampf(minf(phase / 0.4, (6.0 - phase) / 0.4), 0.0, 1.0)
+	var w := 760.0
+	var pos := Vector2(size.x * 0.5 - w * 0.5, size.y - 150.0)
+	draw_rect(Rect2(pos - Vector2(0, 30), Vector2(w, 42)), Color(0.02, 0.03, 0.06, 0.55 * a))
+	draw_string(_font_bold, pos, "TIP  ·  " + TIPS[idx], HORIZONTAL_ALIGNMENT_CENTER, w, 24, Color(0.75, 0.95, 1.0, a))
 
 
 func _draw_wave_info() -> void:

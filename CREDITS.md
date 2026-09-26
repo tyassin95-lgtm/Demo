@@ -15,8 +15,8 @@ where the pack shipped one).
 |---|---|---|---|---|
 | Universal Animation Library (Standard) | Quaternius | https://quaternius.itch.io/universal-animation-library (via https://quaternius.com/packs/universalanimationlibrary.html) | CC0 1.0 | Mannequin character + locomotion, jump, roll, sword, pistol, hit and death animations |
 | Universal Animation Library 2 (Standard) | Quaternius | https://quaternius.itch.io/universal-animation-library-2 | CC0 1.0 | Female mannequin, sword combo/dash, slide, ninja jump, knockback, get-up animations |
-| Sci-Fi Essentials Kit (Standard) | Quaternius | https://quaternius.itch.io/sci-fi-essentials-kit | CC0 1.0 | Weapon models (rifle, sniper, revolver, pistol), health pack, crates, barrel, eye drone |
-| Modular Sci-Fi MegaKit (Standard) | Quaternius | https://quaternius.itch.io/modular-sci-fi-megakit | CC0 1.0 | Environment columns, props and trim textures |
+| Sci-Fi Essentials Kit (Standard) | Quaternius | https://quaternius.itch.io/sci-fi-essentials-kit | CC0 1.0 | Weapon models (rifle, sniper, revolver), health pack, crates, barrel, eye drone (ambient broadcast drones) |
+| Modular Sci-Fi MegaKit (Standard) | Quaternius | https://quaternius.itch.io/modular-sci-fi-megakit | CC0 1.0 | Corner column model and trim textures (grit detail texture for the procedural panels) |
 
 Textures from these packs were downscaled to 1024 px for mobile. Animations were
 extracted into a single library (`game/assets/characters/mannequin_anims.res`)

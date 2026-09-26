@@ -161,6 +161,29 @@ func _setup_ui() -> void:
 	results = ResultsScreen.new()
 	top.add_child(results)
 	controls.pause_requested.connect(pause_menu.open)
+	pause_menu.visibility_changed.connect(controls.reset)
+	_apply_safe_area()
+	get_viewport().size_changed.connect(_apply_safe_area)
+
+
+## Keeps HUD and touch controls clear of display cutouts / rounded corners.
+func _apply_safe_area() -> void:
+	var win := DisplayServer.window_get_size()
+	var safe := DisplayServer.get_display_safe_area()
+	if win.x <= 0 or win.y <= 0 or safe.size.x <= 0 or safe.size.y <= 0:
+		return
+	var logical := get_viewport().get_visible_rect().size
+	var sx := logical.x / float(win.x)
+	var sy := logical.y / float(win.y)
+	var left := clampf(safe.position.x * sx, 0.0, 120.0)
+	var top := clampf(safe.position.y * sy, 0.0, 80.0)
+	var right := clampf((win.x - safe.end.x) * sx, 0.0, 120.0)
+	var bottom := clampf((win.y - safe.end.y) * sy, 0.0, 80.0)
+	for c: Control in [hud, controls]:
+		c.offset_left = left
+		c.offset_top = top
+		c.offset_right = -right
+		c.offset_bottom = -bottom
 
 
 func _notification(what: int) -> void:
