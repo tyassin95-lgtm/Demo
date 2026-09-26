@@ -165,6 +165,13 @@ func _on_actor_died(a: Node) -> void:
 	if a is Enemy:
 		var e := a as Enemy
 		kills += 1
+		# Finisher slow-motion on the last kill of a wave.
+		if not training and state == "fighting" and queue.is_empty():
+			var others := alive.filter(func(x: Variant) -> bool: return x != e and is_instance_valid(x) and (x as Actor).is_alive())
+			if others.is_empty():
+				Engine.time_scale = 0.3
+				get_tree().create_timer(0.45, true, false, true).timeout.connect(func() -> void: Engine.time_scale = 1.0)
+				Game.shake(0.4)
 		var combo: int = Game.player.combo if Game.player and is_instance_valid(Game.player) else 0
 		var mult := 1.0 + minf(combo, 40) * 0.025
 		score += int(Enemy.SCORE.get(e.kind, 100) * mult)

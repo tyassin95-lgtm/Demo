@@ -144,8 +144,8 @@ func _setup_ui() -> void:
 	layer.layer = 10
 	add_child(layer)
 	hud = HUD.new()
-	hud.player = player
 	layer.add_child(hud)
+	hud.bind_player(player)
 	controls = TouchControls.new()
 	controls.player = player
 	controls.camera = player.cam
@@ -168,6 +168,9 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED:
 		if pause_menu and not _ended and not get_tree().paused:
 			pause_menu.open()
+	# Android back button toggles the pause menu.
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST and pause_menu and not _ended:
+		pause_menu.toggle()
 
 
 func _input(event: InputEvent) -> void:

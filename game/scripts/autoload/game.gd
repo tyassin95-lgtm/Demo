@@ -32,6 +32,8 @@ var _switching := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Back button is handled by the menus (pause in-game, close panels / quit in menu).
+	get_tree().quit_on_go_back = false
 	is_touch_device = DisplayServer.is_touchscreen_available() and OS.has_feature("mobile")
 	_setup_input_map()
 	_fade_layer = CanvasLayer.new()
@@ -61,6 +63,10 @@ func _process(_delta: float) -> void:
 	if debug_args.is_empty():
 		return
 	_frame += 1
+	if debug_args.has("touch-test") and player and is_instance_valid(player) and not has_node("TouchTest"):
+		var tt: Node = load("res://scripts/debug/touch_test.gd").new()
+		tt.name = "TouchTest"
+		add_child(tt)
 	if debug_args.has("bot") and player and is_instance_valid(player) and player.get("bot") == null:
 		var b: Node = load("res://scripts/debug/test_bot.gd").new()
 		player.add_child(b)
@@ -194,6 +200,7 @@ func goto_scene(path: String) -> void:
 		return
 	_switching = true
 	get_tree().paused = false
+	Engine.time_scale = 1.0
 	var tw := create_tween()
 	tw.tween_property(_fade_rect, "color:a", 1.0, 0.25)
 	await tw.finished

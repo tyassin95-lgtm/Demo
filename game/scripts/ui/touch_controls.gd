@@ -37,7 +37,6 @@ var _pulse := 0.0
 var _font: Font
 var _font_bold: Font
 var _flash := {}
-var _mouse_look := false
 
 
 func _ready() -> void:

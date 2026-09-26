@@ -366,6 +366,51 @@ func _build_decor() -> void:
 	sub.shaded = false
 	sub.position = Vector3(0, 6.6, -HALF - 1.0)
 	add_child(sub)
+	# Cover props from the sci-fi kit (crates and barrels) with simple colliders.
+	var crate: PackedScene = load("res://assets/props/Prop_Crate.gltf")
+	var crate_l: PackedScene = load("res://assets/props/Prop_Crate_Large.gltf")
+	var barrel: PackedScene = load("res://assets/props/Prop_Barrel1.gltf")
+	for spec in [
+		[crate_l, Vector3(23.6, 0, -5.0), 90.0, Vector3(1.5, 1.5, 3.47)],
+		[crate, Vector3(23.6, 1.5, -5.6), 90.0, Vector3(1.5, 1.5, 1.57)],
+		[crate_l, Vector3(-23.6, 0, 5.0), 90.0, Vector3(1.5, 1.5, 3.47)],
+		[crate, Vector3(-23.6, 1.5, 5.6), 90.0, Vector3(1.5, 1.5, 1.57)],
+		[crate_l, Vector3(-5.0, 0, -23.6), 0.0, Vector3(3.47, 1.5, 1.5)],
+		[crate_l, Vector3(5.0, 0, 23.6), 0.0, Vector3(3.47, 1.5, 1.5)],
+		[crate, Vector3(12.0, 0, -23.8), 15.0, Vector3(1.57, 1.5, 1.5)],
+		[crate, Vector3(-12.0, 0, 23.8), -10.0, Vector3(1.57, 1.5, 1.5)],
+	]:
+		var n: Node3D = (spec[0] as PackedScene).instantiate()
+		add_child(n)
+		n.position = spec[1]
+		n.rotation_degrees.y = spec[2]
+		var sz: Vector3 = spec[3]
+		var cs := CollisionShape3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = sz if absf(spec[2]) < 45.0 or absf(spec[2]) > 135.0 else Vector3(sz.x, sz.y, sz.z)
+		cs.shape = shape
+		cs.position = spec[1] + Vector3(0, sz.y * 0.5, 0)
+		_body.add_child(cs)
+	for bp in [Vector3(24.6, 0, 9.0), Vector3(24.2, 0, 10.1), Vector3(-24.6, 0, -9.0), Vector3(9.5, 0, -24.6), Vector3(-9.0, 0, 24.5), Vector3(-10.1, 0, 24.2)]:
+		var b: Node3D = barrel.instantiate()
+		add_child(b)
+		b.position = bp
+		b.rotation_degrees.y = randf() * 360.0
+		var bcs := CollisionShape3D.new()
+		var bsh := CylinderShape3D.new()
+		bsh.radius = 0.36
+		bsh.height = 1.1
+		bcs.shape = bsh
+		bcs.position = bp + Vector3(0, 0.55, 0)
+		_body.add_child(bcs)
+	# Broadcast drones circling the arena.
+	for i in 3:
+		var d := BroadcastDrone.new()
+		d.phase = TAU * i / 3.0
+		d.radius = 31.0 + i * 3.0
+		d.height = 9.0 + i * 2.5
+		d.speed = 0.1 + i * 0.03
+		add_child(d)
 	# Corner light masts (kit columns) outside the play space.
 	var col_scene: PackedScene = load("res://assets/environment/Column_Round.gltf") if ResourceLoader.exists("res://assets/environment/Column_Round.gltf") else null
 	for sx in [-1.0, 1.0]:

@@ -34,6 +34,8 @@ var _heartbeat_t := 0.0
 var _last_hp := -1.0
 var _od_flash := 0.0
 var _speed_amount := 0.0
+## Recent damage directions: [world_dir: Vector3, time_left: float]
+var _dmg_dirs: Array = []
 
 
 func _ready() -> void:
@@ -66,6 +68,21 @@ func _ready() -> void:
 	UITheme.place(_combo_label, Vector4(1, 0.5, 1, 0.5), Vector4(-330, -150, -30, -80))
 	_combo_sub = _make_label(_font_bold, 24, HORIZONTAL_ALIGNMENT_RIGHT)
 	UITheme.place(_combo_sub, Vector4(1, 0.5, 1, 0.5), Vector4(-330, -84, -30, -54))
+
+
+func bind_player(p: Player) -> void:
+	player = p
+	p.damaged.connect(_on_player_damaged)
+
+
+func _on_player_damaged(_a: Actor, hit: HitInfo) -> void:
+	if hit.source is Node3D and is_instance_valid(hit.source):
+		var d: Vector3 = (hit.source as Node3D).global_position - player.global_position
+		d.y = 0.0
+		if d.length() > 0.1:
+			_dmg_dirs.append([d.normalized(), 1.0])
+			if _dmg_dirs.size() > 6:
+				_dmg_dirs.pop_front()
 
 
 func _make_label(f: Font, fs: int, align: HorizontalAlignment) -> Label:
@@ -109,6 +126,9 @@ func _process(delta: float) -> void:
 	_hp_display = minf(_hp_display, hp) if hp < _hp_display else _hp_display
 	_hp_ghost = move_toward(_hp_ghost, hp, delta * (0.35 if _hp_ghost > hp else 3.0))
 	_damage_flash = move_toward(_damage_flash, 0.0, delta * 1.8)
+	for d in _dmg_dirs:
+		d[1] = float(d[1]) - delta * 0.9
+	_dmg_dirs = _dmg_dirs.filter(func(d: Array) -> bool: return d[1] > 0.0)
 	_od_flash += delta
 	# Low health pulse + heartbeat.
 	var low := hp < 0.3 and player.is_alive()
@@ -171,6 +191,7 @@ func _draw() -> void:
 	if player == null or not is_instance_valid(player):
 		return
 	_draw_bars()
+	_draw_damage_dirs()
 	_draw_crosshair()
 	_draw_enemy_bars()
 	_draw_wave_info()
@@ -191,6 +212,23 @@ func _draw_bar(pos: Vector2, w: float, h: float, frac: float, col: Color, ghost:
 		draw_colored_polygon(PackedVector2Array([pos + Vector2(skew, 0), pos + Vector2(fw + skew, 0), pos + Vector2(fw, h), pos + Vector2(0, h)]), col)
 		draw_line(pos + Vector2(skew, 1), pos + Vector2(fw + skew, 1), col.lightened(0.5), 2.0)
 	draw_polyline(PackedVector2Array([bg[0], bg[1], bg[2], bg[3], bg[0]]), Color(1, 1, 1, 0.25), 1.5)
+
+
+func _draw_damage_dirs() -> void:
+	if player.cam == null:
+		return
+	var c := size * 0.5
+	var yaw := player.cam.yaw
+	var fwd := Vector3(-sin(yaw), 0, -cos(yaw))
+	var right := Vector3(cos(yaw), 0, -sin(yaw))
+	for d in _dmg_dirs:
+		var v: Vector3 = d[0]
+		var a := atan2(v.dot(right), v.dot(fwd))
+		var alpha: float = d[1]
+		var ang := a - PI / 2.0
+		var r := minf(size.x, size.y) * 0.36
+		draw_arc(c, r, ang - 0.32, ang + 0.32, 20, Color(1.0, 0.2, 0.15, 0.75 * alpha), 10.0, true)
+		draw_arc(c, r - 9.0, ang - 0.2, ang + 0.2, 16, Color(1.0, 0.5, 0.4, 0.5 * alpha), 4.0, true)
 
 
 func _draw_bars() -> void:

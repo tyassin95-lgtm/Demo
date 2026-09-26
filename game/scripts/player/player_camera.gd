@@ -6,17 +6,17 @@ extends Node3D
 
 const PITCH_MIN := deg_to_rad(-62.0)
 const PITCH_MAX := deg_to_rad(55.0)
-const TOUCH_SCALE := 0.0048
+const TOUCH_SCALE := 0.0042
 const MOUSE_SCALE := 0.0024
 
 var target: Player
 var camera: Camera3D
 var yaw := 0.0
 var pitch := deg_to_rad(-12.0)
-var distance := 4.1
-var shoulder := 0.62
+var distance := 3.7
+var shoulder := 0.58
 var height := 1.6
-var base_fov := 74.0
+var base_fov := 72.0
 var hitmarker_time := 0.0
 var hitmarker_kill := false
 
@@ -25,7 +25,7 @@ var _fov_kick := 0.0
 var _trauma := 0.0
 var _shake_t := 0.0
 var _pivot := Vector3.ZERO
-var _cur_dist := 4.1
+var _cur_dist := 3.7
 var _idle_look := 0.0
 var _assist_angle := 99.0
 var _sphere := SphereShape3D.new()

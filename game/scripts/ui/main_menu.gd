@@ -76,7 +76,7 @@ func _build_world() -> void:
 	})
 	_fighter.show_weapon(WeaponDB.weapon("arc_blade"))
 	_fighter.position = Vector3(0, 2.5, 0)
-	_fighter.rotation.y = PI * 0.15
+	_fighter.rotation.y = PI * 1.12
 	_fighter.anim.set_base("idle_blade", 0.0)
 	_cam = Camera3D.new()
 	_cam.fov = 50.0
@@ -204,6 +204,19 @@ func _build_ui() -> void:
 		_info.visible = false
 		_main_panel.visible = true)
 	iv.add_child(back)
+
+
+func _notification(what: int) -> void:
+	# Android back: close an open panel, otherwise quit.
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		if _settings and _settings.visible:
+			_settings.visible = false
+			_main_panel.visible = true
+		elif _info and _info.visible:
+			_info.visible = false
+			_main_panel.visible = true
+		else:
+			get_tree().quit()
 
 
 func _add_button(text: String, cb: Callable) -> void:
