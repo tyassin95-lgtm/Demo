@@ -280,13 +280,23 @@ func dissolve_in(duration: float = 0.8) -> void:
 	_dissolve_speed = 1.0 / maxf(duration, 0.01)
 
 
+## Screen-door fade used when the camera is very close to this character.
+func set_fade(v: float) -> void:
+	if body_mat:
+		body_mat.set_shader_parameter("dither_fade", v)
+		joint_mat.set_shader_parameter("dither_fade", v)
+	for n in [head, chest]:
+		if n:
+			n.visible = v < 0.6
+
+
 func set_lean(roll: float, pitch: float) -> void:
 	_lean_target = Vector2(roll, pitch)
 
 
 ## Spawns a translucent snapshot of the current pose (dash afterimage).
 func spawn_afterimage(color: Color, life: float = 0.35) -> void:
-	if mesh == null or not is_inside_tree():
+	if mesh == null or not is_inside_tree() or DisplayServer.get_name() == "headless":
 		return
 	var baked := mesh.bake_mesh_from_current_skeleton_pose()
 	if baked == null:

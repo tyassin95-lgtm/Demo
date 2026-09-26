@@ -45,6 +45,10 @@ var peak_fall_speed := 0.0
 var last_attacker: Actor = null
 ## Added to the facing when orienting the visual (legs offset while strafing).
 var visual_yaw_offset := 0.0
+## After a flinch/stagger ends, light reactions are ignored for this long
+## (damage still applies). Used by the player to prevent stun-locks.
+var flinch_immunity_after_hit := 0.0
+var _flinch_immunity := 0.0
 var _knock_grounded_time := 0.0
 var _clock := 0.0
 
@@ -117,6 +121,8 @@ func _physics_process(delta: float) -> void:
 	state_time += dt
 	if invuln > 0.0:
 		invuln -= dt
+	if _flinch_immunity > 0.0:
+		_flinch_immunity -= dt
 	if _clock - last_hit_time > 1.2:
 		poise = move_toward(poise, 0.0, poise_max * dt)
 	_actor_update(dt)
@@ -229,6 +235,8 @@ func take_hit(hit: HitInfo) -> bool:
 		poise = 0.0
 	if super_armor and reaction <= HitInfo.Reaction.STAGGER:
 		reaction = HitInfo.Reaction.NONE
+	if _flinch_immunity > 0.0 and reaction <= HitInfo.Reaction.STAGGER:
+		reaction = HitInfo.Reaction.NONE
 	if hit.hitstop > 0.0:
 		hitstop = maxf(hitstop, hit.hitstop)
 	_apply_reaction(reaction, hit)
@@ -278,12 +286,14 @@ func _update_reaction_states(dt: float) -> bool:
 			steer_horizontal(Vector3.ZERO, 30.0, dt)
 			if state_time >= FLINCH_TIME:
 				set_state(State.NORMAL)
+				_flinch_immunity = flinch_immunity_after_hit
 			return true
 		State.STAGGER:
 			apply_gravity(dt)
 			steer_horizontal(Vector3.ZERO, 22.0, dt)
 			if state_time >= STAGGER_TIME:
 				set_state(State.NORMAL)
+				_flinch_immunity = flinch_immunity_after_hit
 			return true
 		State.KNOCKDOWN:
 			apply_gravity(dt)

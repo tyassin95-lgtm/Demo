@@ -35,7 +35,8 @@ func _build_world() -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_sky_contribution = 0.55
+	env.ambient_light_sky_contribution = 0.3
+	env.ambient_light_color = Color(0.24, 0.28, 0.38)
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.tonemap_white = 6.0
 	env.glow_enabled = true
@@ -78,7 +79,9 @@ func _build_world() -> void:
 	_fighter.rotation.y = PI * 0.15
 	_fighter.anim.set_base("idle_blade", 0.0)
 	_cam = Camera3D.new()
-	_cam.fov = 55.0
+	_cam.fov = 50.0
+	# Shift the frustum so the fighter sits on the right, clear of the menu.
+	_cam.h_offset = -1.35
 	add_child(_cam)
 	_cam.current = true
 	get_viewport().scaling_3d_scale = 0.85 if int(Settings.get_value("quality")) < 2 else 1.0
@@ -86,10 +89,10 @@ func _build_world() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
-	var ang := _t * 0.08 + 0.6
-	var target := Vector3(0, 3.6, 0)
-	_cam.global_position = target + Vector3(sin(ang) * 7.5, 1.4 + sin(_t * 0.3) * 0.4, cos(ang) * 7.5)
-	_cam.look_at(target + Vector3(sin(ang + 1.2) * 1.8, -0.2, cos(ang + 1.2) * 1.8))
+	var ang := sin(_t * 0.12) * 0.6 + 0.35
+	var target := _fighter.global_position + Vector3(0, 1.05, 0)
+	_cam.global_position = target + Vector3(sin(ang) * 4.2, 0.55 + sin(_t * 0.3) * 0.15, cos(ang) * 4.2)
+	_cam.look_at(target)
 	_fighter.tick(delta)
 	_pose_timer -= delta
 	if _pose_timer <= 0.0:
@@ -128,16 +131,16 @@ func _build_ui() -> void:
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", 70)
-	margin.add_theme_constant_override("margin_top", 60)
+	margin.add_theme_constant_override("margin_top", 46)
 	margin.add_theme_constant_override("margin_bottom", 40)
 	_ui.add_child(margin)
 	_main_panel = VBoxContainer.new()
-	_main_panel.add_theme_constant_override("separation", 12)
+	_main_panel.add_theme_constant_override("separation", 9)
 	margin.add_child(_main_panel)
 	var title := Label.new()
 	title.text = "NEON RIFT"
 	title.add_theme_font_override("font", UITheme.title_font())
-	title.add_theme_font_size_override("font_size", 92)
+	title.add_theme_font_size_override("font_size", 80)
 	title.add_theme_color_override("font_color", Color(0.85, 0.97, 1.0))
 	title.add_theme_color_override("font_shadow_color", Color(0.1, 0.7, 1.0, 0.6))
 	title.add_theme_constant_override("shadow_offset_x", 0)
@@ -151,7 +154,7 @@ func _build_ui() -> void:
 	sub.add_theme_color_override("font_color", UITheme.ORANGE)
 	_main_panel.add_child(sub)
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 26)
+	spacer.custom_minimum_size = Vector2(0, 14)
 	_main_panel.add_child(spacer)
 	_add_button("WAVE ASSAULT", func() -> void:
 		Audio.play("ui_confirm")
@@ -206,7 +209,7 @@ func _build_ui() -> void:
 func _add_button(text: String, cb: Callable) -> void:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(420, 66)
+	b.custom_minimum_size = Vector2(400, 56)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.pressed.connect(cb)

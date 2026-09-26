@@ -7,7 +7,7 @@ extends Actor
 ## Melee attackers share a small pool of attack tokens so fights stay readable.
 
 enum Kind { STRIKER, GUNNER, BRUTE }
-enum AI { CHASE, CIRCLE, ENGAGE, RETREAT, STRAFE, AIM, RECOVER, USE_PAD }
+enum AI { CHASE, CIRCLE, ENGAGE, RETREAT, STRAFE, AIM, RECOVER, USE_PAD, WINDUP }
 
 const SCORE := {Kind.STRIKER: 100, Kind.GUNNER: 120, Kind.BRUTE: 300}
 
@@ -44,6 +44,8 @@ var _laser: MeshInstance3D
 var _death_timer := 0.0
 var _last_target_pos := Vector3.ZERO
 var _stuck_time := 0.0
+var _windup_action := ""
+var _windup_time := 0.0
 
 
 func setup(k: Kind, diff: float = 1.0) -> void:
@@ -97,7 +99,7 @@ func _ready() -> void:
 			if visual.blade:
 				visual.blade.visible = false
 	# Enemies reuse the player's move set but hit softer so fights stay fair on touch.
-	var base_mult := 0.55 if kind == Kind.STRIKER else (0.8 if kind == Kind.BRUTE else 1.0)
+	var base_mult := 0.45 if kind == Kind.STRIKER else (0.7 if kind == Kind.BRUTE else 1.0)
 	weapons.damage_mult = base_mult * (1.0 + 0.25 * (difficulty - 1.0))
 	nav = NavigationAgent3D.new()
 	nav.path_desired_distance = 0.8
@@ -179,6 +181,9 @@ func _actor_update(dt: float) -> void:
 		return
 	if _update_reaction_states(dt):
 		_laser.visible = false
+		if ai == AI.WINDUP:
+			ai = AI.CIRCLE
+			_release_token()
 		if state != State.FLINCH:
 			_release_token()
 		return
@@ -240,19 +245,16 @@ func _think_striker(dist: float) -> void:
 		_release_token()
 		ai = AI.CHASE
 		return
+	if ai == AI.WINDUP:
+		return
 	if dash_attack_cd <= 0.0 and dist > 4.5 and dist < 9.5 and randf() < 0.35 * aggression and _try_token():
 		dash_attack_cd = randf_range(3.5, 6.0) / difficulty
-		_face_target()
-		weapons.press_primary("dash")
-		combo_left = 0
+		_begin_windup("dash", 0.42 / sqrt(difficulty))
 		return
 	if dist < 3.0 and attack_cd <= 0.0:
 		if _try_token():
-			ai = AI.ENGAGE
 			combo_left = randi_range(1, 3 if difficulty > 1.2 else 2)
-			_face_target()
-			weapons.press_primary("ground")
-			combo_left -= 1
+			_begin_windup("combo", 0.3 / sqrt(difficulty))
 			return
 	if dist < 5.5:
 		ai = AI.CIRCLE if not has_token else AI.CHASE
@@ -281,15 +283,17 @@ func _think_gunner(dist: float) -> void:
 
 
 func _think_brute(dist: float) -> void:
+	if ai == AI.WINDUP:
+		return
 	if dist < 3.6 and attack_cd <= 0.0:
-		_face_target()
-		weapons.press_primary("ground")
-		attack_cd = randf_range(1.8, 2.6) / difficulty
+		attack_cd = randf_range(2.0, 2.8) / difficulty
 		super_armor = true
+		_begin_windup("slam", 0.35)
 		return
 	if dash_attack_cd <= 0.0 and dist > 6.0 and dist < 13.0:
 		dash_attack_cd = randf_range(5.0, 7.0) / difficulty
-		_start_charge()
+		super_armor = true
+		_begin_windup("charge", 0.5)
 		return
 	ai = AI.CHASE
 
@@ -314,6 +318,39 @@ func _maybe_dodge(dist: float) -> void:
 		var side := Vector3(d.z, 0, -d.x) * (1.0 if randf() < 0.5 else -1.0)
 		var dir := (side + (-d if dist < 3.0 else Vector3.ZERO) * 0.6).normalized()
 		_start_dash(dir)
+
+
+## Telegraph before melee attacks: stop, face the player, blade glint + cue.
+func _begin_windup(action: String, time: float) -> void:
+	ai = AI.WINDUP
+	_windup_action = action
+	_windup_time = time
+	_face_target()
+	var glow: Color = style.get("glow", Color.RED)
+	var hand := visual.hand_r.global_position if visual.hand_r else chest_position()
+	VFX.glint(hand, glow)
+	visual.flash(0.35)
+	Audio.play_at("enemy_alert", global_position + Vector3.UP, -6.0, 1.3)
+
+
+func _release_windup() -> void:
+	_face_target()
+	if _windup_action == "slam":
+		weapons.press_primary("ground")
+		ai = AI.CHASE
+		return
+	if _windup_action == "charge":
+		_start_charge()
+		ai = AI.CHASE
+		return
+	if _windup_action == "dash":
+		weapons.press_primary("dash")
+		combo_left = 0
+		ai = AI.ENGAGE
+	else:
+		ai = AI.ENGAGE
+		weapons.press_primary("ground")
+		combo_left -= 1
 
 
 func _has_los() -> bool:
@@ -369,6 +406,12 @@ func _act(dt: float) -> void:
 		AI.AIM:
 			_update_aim_burst(dt, dist)
 			wish = Vector3(dir.z, 0, -dir.x) * strafe_sign * 0.35
+		AI.WINDUP:
+			wish = Vector3.ZERO
+			_face_target()
+			_windup_time -= dt
+			if _windup_time <= 0.0:
+				_release_windup()
 		AI.USE_PAD:
 			if _pad_target and is_instance_valid(_pad_target):
 				wish = _nav_dir(_pad_target.global_position)

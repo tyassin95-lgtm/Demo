@@ -174,6 +174,8 @@ func _physics_process(delta: float) -> void:
 	else:
 		_cur_dist = lerpf(_cur_dist, hit_dist, clampf(delta * 5.0, 0.0, 1.0))
 	global_transform = Transform3D(rot, from + dir * maxf(_cur_dist, 0.3))
+	var near := global_position.distance_to(target.chest_position())
+	target.visual.set_fade(clampf((1.5 - near) / 0.8, 0.0, 0.85))
 
 	# Shake (trauma^2 scaled noise on position and rotation).
 	_trauma = move_toward(_trauma, 0.0, delta * 1.6)

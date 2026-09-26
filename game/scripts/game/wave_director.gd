@@ -89,7 +89,7 @@ func _begin_wave(i: int) -> void:
 	# Make sure the first spawns aren't all brutes.
 	queue.sort_custom(func(a: Variant, b: Variant) -> bool: return a != "brute" and b == "brute")
 	max_alive = 4 + mini(i, 2)
-	Enemy.max_tokens = 2 if i < 3 else 3
+	Enemy.max_tokens = 1 if i < 2 else (2 if i < 4 else 3)
 	spawn_timer = 0.3
 	var title := "WAVE %d" % (i + 1) if i < WAVES.size() - 1 else "FINAL WAVE"
 	announce.emit(title, "%d hostiles incoming" % queue.size(), Color(1.0, 0.5, 0.2) if i == WAVES.size() - 1 else Color(0.4, 0.9, 1.0))

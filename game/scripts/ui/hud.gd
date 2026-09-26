@@ -291,8 +291,9 @@ func _draw_enemy_bars() -> void:
 			var p := sp - Vector2(w * 0.5, 0)
 			draw_rect(Rect2(p - Vector2(1, 1), Vector2(w + 2, 8)), Color(0, 0, 0, 0.6))
 			draw_rect(Rect2(p, Vector2(w * fr, 6)), col)
-			if e.kind == Enemy.Kind.GUNNER and e.ai == Enemy.AI.AIM:
-				draw_string(_font_bold, sp + Vector2(-6, -8), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color(1.0, 0.8, 0.2))
+			if (e.kind == Enemy.Kind.GUNNER and e.ai == Enemy.AI.AIM) or e.ai == Enemy.AI.WINDUP:
+				var warn := Color(1.0, 0.8, 0.2) if e.ai == Enemy.AI.AIM else Color(1.0, 0.3, 0.2)
+				draw_string(_font_bold, sp + Vector2(-6, -8), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 34, warn)
 		else:
 			# Off-screen indicator on an ellipse around the screen center.
 			var dir3 := e.global_position - cam3d.global_position
@@ -302,7 +303,7 @@ func _draw_enemy_bars() -> void:
 				d2 = Vector2(0, 1)
 			d2 = d2.normalized()
 			var edge := center + Vector2(d2.x * (size.x * 0.5 - 60.0), d2.y * (size.y * 0.5 - 60.0))
-			var threat := e.kind == Enemy.Kind.GUNNER and e.ai == Enemy.AI.AIM
+			var threat := (e.kind == Enemy.Kind.GUNNER and e.ai == Enemy.AI.AIM) or e.ai == Enemy.AI.WINDUP
 			var ic := Color(1.0, 0.8, 0.2) if threat else col
 			var ang := d2.angle()
 			var tri := PackedVector2Array([edge + Vector2(16, 0).rotated(ang), edge + Vector2(-8, 10).rotated(ang), edge + Vector2(-8, -10).rotated(ang)])

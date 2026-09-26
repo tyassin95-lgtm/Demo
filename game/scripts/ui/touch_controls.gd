@@ -337,8 +337,13 @@ func _draw_icon(name: String, c: Vector2, r: float, col: Color, w: WeaponDB.Weap
 			var kind := w.secondary if w else WeaponDB.Secondary.HEAVY
 			match kind:
 				WeaponDB.Secondary.HEAVY:
-					draw_arc(c, s * 0.95, PI * 0.15, PI * 1.35, 24, col, 4.5, true)
-					draw_polyline(PackedVector2Array([c + Vector2(s * 0.95, 0).rotated(PI * 1.35) + Vector2(-6, -4), c + Vector2(s * 0.95, 0).rotated(PI * 1.35), c + Vector2(s * 0.95, 0).rotated(PI * 1.35) + Vector2(6, -2)]), col, 3.0, true)
+					# Two heavy slash marks and an impact burst.
+					draw_line(c + Vector2(-s * 0.9, s * 0.55), c + Vector2(s * 0.35, -s * 0.9), col, 5.0, true)
+					draw_line(c + Vector2(-s * 0.35, s * 0.9), c + Vector2(s * 0.9, -s * 0.55), col, 5.0, true)
+					for k in 5:
+						var a := -PI * 0.9 + k * PI * 0.2
+						var d := Vector2.from_angle(a)
+						draw_line(c + Vector2(s * 0.55, s * 0.55) + d * s * 0.2, c + Vector2(s * 0.55, s * 0.55) + d * s * 0.45, col, 2.0, true)
 				WeaponDB.Secondary.GRENADE:
 					draw_circle(c + Vector2(0, s * 0.2), s * 0.62, col)
 					draw_line(c + Vector2(0, -s * 0.4), c + Vector2(0, -s * 0.8), col, 4.0, true)

@@ -85,6 +85,7 @@ func _init() -> void:
 	team = Game.TEAM_PLAYER
 	max_health = 150.0
 	poise_max = 34.0
+	flinch_immunity_after_hit = 0.7
 	style = {
 		"base": Color(0.9, 0.92, 0.96), "rim": Color(0.25, 0.85, 1.0), "glow": Color(0.2, 0.9, 1.0),
 		"visor": Color(0.3, 1.0, 1.0), "stripe": 0.45, "metallic": 0.4, "roughness": 0.28,
@@ -210,6 +211,9 @@ func _actor_update(dt: float) -> void:
 
 
 func _update_timers(dt: float) -> void:
+	# Gentle regeneration after a few seconds without taking damage.
+	if is_alive() and _clock - last_hit_time > 4.5 and health < max_health:
+		health = minf(health + 5.0 * dt, max_health)
 	dash_cd -= dt
 	wallrun_cd -= dt
 	_land_anim_cd -= dt
@@ -504,7 +508,7 @@ func _try_start_wallrun(wish: Vector3) -> void:
 		var origin := global_position + Vector3.UP * 1.0
 		var side := Vector3(hv.z, 0, -hv.x).normalized()
 		for d in [side, -side]:
-			var q := PhysicsRayQueryParameters3D.create(origin, origin + d * 0.7, Game.LAYER_WORLD)
+			var q := PhysicsRayQueryParameters3D.create(origin, origin + d * 1.05, Game.LAYER_WORLD)
 			var res := space.intersect_ray(q)
 			if not res.is_empty() and absf((res.normal as Vector3).y) < 0.3:
 				n = res.normal

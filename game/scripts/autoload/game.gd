@@ -72,6 +72,14 @@ func _process(_delta: float) -> void:
 		var path := "%s/shot_%04d.png" % [debug_args["shots"], _frame]
 		img.save_png(path)
 		print("[debug] saved ", path)
+	if debug_args.has("perf") and _frame % 60 == 0:
+		print("[perf] frame=%d draw_calls=%d objects=%d primitives=%d nodes=%d vram=%.0fMB mem=%.0fMB" % [_frame,
+			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
+			Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),
+			Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME),
+			Performance.get_monitor(Performance.OBJECT_NODE_COUNT),
+			Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0,
+			Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0])
 	if debug_args.has("quit-frame") and _frame >= int(debug_args["quit-frame"]):
 		get_tree().quit()
 

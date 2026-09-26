@@ -337,6 +337,25 @@ func hit_spark(pos: Vector3, dir: Vector3, color: Color, size: float = 1.0) -> v
 	sparks(pos, dir, color, size, size)
 
 
+## Short star glint (attack telegraphs).
+func glint(pos: Vector3, color: Color, size: float = 1.0) -> void:
+	var f := _next("flash") as MeshInstance3D
+	if f == null:
+		return
+	f.global_position = pos
+	var m := f.material_override as StandardMaterial3D
+	m.albedo_color = Color(1.2 + color.r * 1.5, 1.2 + color.g * 1.5, 1.2 + color.b * 1.5)
+	var ring := f.get_node("Ring") as MeshInstance3D
+	(ring.material_override as StandardMaterial3D).albedo_color = Color(0, 0, 0)
+	f.scale = Vector3.ONE * 0.05
+	f.rotation = Vector3.ZERO
+	var tw := f.create_tween()
+	f.set_meta("tween", tw)
+	tw.tween_property(f, "scale", Vector3.ONE * 0.9 * size, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(f, "scale", Vector3.ONE * 0.01, 0.18)
+	tw.tween_callback(f.hide)
+
+
 func impact(pos: Vector3, normal: Vector3, color: Color, size: float = 1.0) -> void:
 	var f := _next("flash") as MeshInstance3D
 	if f == null:

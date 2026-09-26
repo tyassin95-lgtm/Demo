@@ -44,11 +44,11 @@ func build() -> void:
 
 
 func _make_materials() -> void:
-	_materials["floor"] = _panel_mat(Color(0.2, 0.22, 0.27), Color(0.15, 0.16, 0.2), CYAN, 2.0, 0.07, 0.35, 0.45)
-	_materials["floor_core"] = _panel_mat(Color(0.16, 0.17, 0.22), Color(0.12, 0.12, 0.16), ORANGE, 1.5, 0.18, 0.28, 0.5)
-	_materials["wall"] = _panel_mat(Color(0.55, 0.58, 0.64), Color(0.44, 0.47, 0.53), CYAN, 1.5, 0.05, 0.45, 0.35)
-	_materials["block"] = _panel_mat(Color(0.78, 0.8, 0.84), Color(0.66, 0.69, 0.74), CYAN, 1.0, 0.0, 0.3, 0.25)
-	_materials["dark"] = _panel_mat(Color(0.09, 0.1, 0.13), Color(0.07, 0.08, 0.1), MAGENTA, 1.0, 0.08, 0.5, 0.6)
+	_materials["floor"] = _panel_mat(Color(0.2, 0.22, 0.27), Color(0.15, 0.16, 0.2), CYAN, 2.0, 0.07, 0.34, 0.4)
+	_materials["floor_core"] = _panel_mat(Color(0.15, 0.16, 0.2), Color(0.11, 0.11, 0.15), ORANGE, 1.5, 0.18, 0.3, 0.45)
+	_materials["wall"] = _panel_mat(Color(0.36, 0.4, 0.47), Color(0.28, 0.31, 0.37), CYAN, 1.5, 0.05, 0.6, 0.08)
+	_materials["block"] = _panel_mat(Color(0.72, 0.75, 0.8), Color(0.6, 0.63, 0.69), CYAN, 1.0, 0.0, 0.5, 0.05)
+	_materials["dark"] = _panel_mat(Color(0.08, 0.09, 0.12), Color(0.06, 0.07, 0.09), MAGENTA, 1.0, 0.08, 0.45, 0.5)
 	var nm := ShaderMaterial.new()
 	nm.shader = NEON
 	nm.set_shader_parameter("color", Vector3(1, 1, 1))

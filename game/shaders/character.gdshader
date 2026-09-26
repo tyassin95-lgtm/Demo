@@ -17,6 +17,7 @@ uniform float hit_flash = 0.0;
 uniform float dissolve = 0.0;
 uniform vec3 dissolve_color : source_color = vec3(0.3, 0.9, 1.0);
 uniform float overdrive = 0.0;
+uniform float dither_fade = 0.0;
 uniform vec3 overdrive_color : source_color = vec3(1.0, 0.45, 0.1);
 
 varying vec3 obj_pos;
@@ -42,6 +43,15 @@ void vertex() {
 }
 
 void fragment() {
+	if (dither_fade > 0.001) {
+		// 4x4 ordered dither (screen-door transparency keeps the opaque pipeline).
+		ivec2 q = ivec2(FRAGCOORD.xy) % 4;
+		int idx = q.x + q.y * 4;
+		float bayer[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
+		if ((bayer[idx] + 0.5) / 16.0 < dither_fade) {
+			discard;
+		}
+	}
 	float edge = 0.0;
 	if (dissolve > 0.001) {
 		float n = vnoise(obj_pos * 8.0) * 0.65 + vnoise(obj_pos * 21.0) * 0.35;
