@@ -1,0 +1,13 @@
+# Godot
+game/.godot/
+game/android/
+*.tmp
+# Build outputs (the release APK is copied to dist/ explicitly)
+build/
+game/build/
+*.apks
+*.aab
+*.idsig
+# Signing keys must never be committed
+*.keystore
+*.jks

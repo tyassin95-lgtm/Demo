@@ -1,0 +1,22 @@
+Sound effect sources (all CC0 1.0 unless marked "original")
+============================================================
+Kenney Interface Sounds (https://kenney.nl/assets/interface-sounds):
+  ui_click=click_002 ui_select=select_002 ui_confirm=confirmation_002 ui_back=back_002
+  ui_toggle=toggle_002 hitmarker=tick_002 ui_error=error_004 empty_click=click_001
+Kenney Sci-Fi Sounds (https://kenney.nl/assets/sci-fi-sounds):
+  rifle_shot_1=laserSmall_000 rifle_shot_2=laserSmall_002 rifle_shot_3=laserSmall_004
+  scatter_shot=laserLarge_001 scatter_boom=lowFrequency_explosion_000 rail_shot=laserLarge_000
+  rail_charge=forceField_002 launcher_shot=laserRetro_000 explosion_1=explosionCrunch_000
+  explosion_2=explosionCrunch_002 explosion_low=lowFrequency_explosion_001
+  impact_metal_1=impactMetal_000 impact_metal_2=impactMetal_002 shield=forceField_000
+Kenney Impact Sounds (https://kenney.nl/assets/impact-sounds):
+  impact_light=impactMetal_light_001 body_hit_1=impactPunch_medium_000 body_hit_2=impactPunch_medium_002
+  player_hurt_1=impactPunch_heavy_000 player_hurt_2=impactPunch_heavy_002 knockdown=impactSoft_heavy_001
+  step_1..4=footstep_concrete_000..003
+Kenney RPG Audio (https://kenney.nl/assets/rpg-audio):
+  reload_1=metalClick reload_2=metalLatch swap_blade=drawKnife1 swap_gun=handleSmallLeather
+Kenney Digital Audio (https://kenney.nl/assets/digital-audio):
+  pickup=powerUp2 wave_start=phaserUp6 wave_clear=powerUp12 beep=tone1 game_over=lowDown
+  kill_confirm=zapThreeToneUp enemy_death=zapThreeToneDown enemy_alert=phaserDown1 overdrive_ready=powerUp8
+Original (synthesized by tools/synth_sfx.py for this project):
+  gen_*.ogg
