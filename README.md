@@ -101,6 +101,8 @@ godot --headless --path . --fixed-fps 60 res://scenes/arena.tscn -- --touch-test
 # Autoplay bot (logs stats each second); add --mode=training or --god as needed
 godot --headless --path . --fixed-fps 60 res://scenes/arena.tscn -- --bot --quit-frame=7200
 # Screenshots: -- --shots=/tmp/out --shot-frames=60,120 --quit-frame=121 (needs a display)
+# Character close-up sheet (materials, accessories, dissolve, near-camera fade; needs a display)
+godot --path . --rendering-method mobile res://tests/closeup_film.tscn -- /tmp/closeup.png
 ```
 
 - `game/tools/build_character_assets.gd` extracts the used animations from the Universal

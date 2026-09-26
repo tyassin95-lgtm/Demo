@@ -40,9 +40,12 @@ var current_gun: Node3D
 var muzzle: Marker3D
 var body_mat: ShaderMaterial
 var joint_mat: ShaderMaterial
+## Materials of the visor/backpack pieces (same effects as the body).
+var acc_mats: Array[ShaderMaterial] = []
 var style := {}
 
 var _flash := 0.0
+var _fade := 0.0
 var _dissolve := 0.0
 var _dissolve_target := 0.0
 var _dissolve_speed := 1.0
@@ -50,6 +53,8 @@ var _lean := Vector2.ZERO
 var _lean_target := Vector2.ZERO
 var _gun_kick := 0.0
 var _overdrive := 0.0
+
+static var _pack_mesh: ArrayMesh
 
 
 func build(model_path: String, p_style: Dictionary) -> void:
@@ -111,55 +116,79 @@ func _apply_materials() -> void:
 		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 
 
+func _make_acc_mat(params: Dictionary) -> ShaderMaterial:
+	var m := _make_char_mat(params)
+	acc_mats.append(m)
+	return m
+
+
+func _add_box(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	mi.mesh = bm
+	mi.material_override = mat
+	parent.add_child(mi)
+	mi.position = pos
+	return mi
+
+
 func _build_accessories() -> void:
 	var glow: Color = style.get("glow", Color(0.2, 0.9, 1.0))
 	var visor_color: Color = style.get("visor", glow)
+	var glow_mat := _make_acc_mat({
+		"base_color": Color(0.04, 0.04, 0.05), "metallic": 0.2, "roughness": 0.3,
+		"emission_color": glow, "emission_strength": 3.0, "rim_strength": 0.0, "dissolve_color": glow,
+	})
 	# Visor band across the "face".
-	var visor := MeshInstance3D.new()
-	var vb := BoxMesh.new()
-	vb.size = Vector3(0.17, 0.045, 0.06)
-	visor.mesh = vb
-	var vm := StandardMaterial3D.new()
-	vm.albedo_color = Color(0.02, 0.02, 0.03)
-	vm.emission_enabled = true
-	vm.emission = visor_color
-	vm.emission_energy_multiplier = 3.5
-	vm.metallic = 0.8
-	vm.roughness = 0.15
-	visor.material_override = vm
+	var visor := _add_box(head, Vector3(0.17, 0.045, 0.06), Vector3(0.0, 0.1, 0.085), _make_acc_mat({
+		"base_color": Color(0.02, 0.02, 0.03), "metallic": 0.8, "roughness": 0.15,
+		"emission_color": visor_color, "emission_strength": 3.5, "rim_strength": 0.0, "dissolve_color": visor_color,
+	}))
 	visor.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	head.add_child(visor)
-	visor.position = Vector3(0.0, 0.1, 0.085)
-	# Compact thruster pack on the upper back.
+	# Compact thruster pack on the upper back (the bone's -Z points out of the back).
 	if style.get("backpack", true):
 		var pack := MeshInstance3D.new()
-		var pb := BoxMesh.new()
-		pb.size = Vector3(0.24, 0.26, 0.09)
-		pack.mesh = pb
-		var pm := StandardMaterial3D.new()
-		pm.albedo_color = style.get("pack_color", Color(0.14, 0.15, 0.18))
-		pm.metallic = 0.7
-		pm.roughness = 0.35
-		pack.material_override = pm
+		pack.mesh = _get_pack_mesh()
+		pack.set_surface_override_material(0, _make_acc_mat({
+			"base_color": style.get("pack_color", Color(0.22, 0.24, 0.3)), "metallic": 0.45, "roughness": 0.3,
+			"rim_color": glow, "rim_strength": 0.8, "rim_power": 2.2, "dissolve_color": glow,
+		}))
+		pack.set_surface_override_material(1, glow_mat)
 		chest.add_child(pack)
 		pack.position = Vector3(0.0, 0.02, -0.14)
-		for side in [-1.0, 1.0]:
-			var noz := MeshInstance3D.new()
-			var nc := CylinderMesh.new()
-			nc.top_radius = 0.035
-			nc.bottom_radius = 0.045
-			nc.height = 0.09
-			nc.radial_segments = 8
-			nc.rings = 1
-			noz.mesh = nc
-			var nm := StandardMaterial3D.new()
-			nm.albedo_color = Color(0.05, 0.05, 0.06)
-			nm.emission_enabled = true
-			nm.emission = glow
-			nm.emission_energy_multiplier = 2.5
-			noz.material_override = nm
-			pack.add_child(noz)
-			noz.position = Vector3(side * 0.08, -0.15, 0.0)
+
+
+
+## Thruster pack geometry shared by all characters: surface 0 is the armoured shell,
+## surface 1 the glowing core strip and nozzles.
+static func _get_pack_mesh() -> ArrayMesh:
+	if _pack_mesh:
+		return _pack_mesh
+	var shell := SurfaceTool.new()
+	shell.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var body := BoxMesh.new()
+	body.size = Vector3(0.2, 0.22, 0.075)
+	shell.append_from(body, 0, Transform3D.IDENTITY)
+	var collar := BoxMesh.new()
+	collar.size = Vector3(0.23, 0.035, 0.085)
+	shell.append_from(collar, 0, Transform3D(Basis.IDENTITY, Vector3(0.0, 0.085, 0.0)))
+	_pack_mesh = shell.commit()
+	var glow := SurfaceTool.new()
+	glow.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var strip := BoxMesh.new()
+	strip.size = Vector3(0.035, 0.15, 0.012)
+	glow.append_from(strip, 0, Transform3D(Basis.IDENTITY, Vector3(0.0, -0.005, -0.042)))
+	var nozzle := CylinderMesh.new()
+	nozzle.top_radius = 0.032
+	nozzle.bottom_radius = 0.042
+	nozzle.height = 0.08
+	nozzle.radial_segments = 8
+	nozzle.rings = 1
+	for side in [-1.0, 1.0]:
+		glow.append_from(nozzle, 0, Transform3D(Basis.IDENTITY, Vector3(side * 0.065, -0.14, 0.0)))
+	glow.commit(_pack_mesh)
+	return _pack_mesh
 
 
 # --- Weapons ------------------------------------------------------------
@@ -280,12 +309,14 @@ func dissolve_in(duration: float = 0.8) -> void:
 
 ## Screen-door fade used when the camera is very close to this character.
 func set_fade(v: float) -> void:
+	if is_equal_approx(v, _fade):
+		return
+	_fade = v
 	if body_mat:
 		body_mat.set_shader_parameter("dither_fade", v)
 		joint_mat.set_shader_parameter("dither_fade", v)
-	for n in [head, chest]:
-		if n:
-			n.visible = v < 0.6
+	for m in acc_mats:
+		m.set_shader_parameter("dither_fade", v)
 
 
 func set_lean(roll: float, pitch: float) -> void:
@@ -332,3 +363,9 @@ func tick(delta: float) -> void:
 		joint_mat.set_shader_parameter("hit_flash", _flash)
 		joint_mat.set_shader_parameter("dissolve", _dissolve)
 		joint_mat.set_shader_parameter("overdrive", _overdrive)
+		for m in acc_mats:
+			m.set_shader_parameter("hit_flash", _flash)
+			m.set_shader_parameter("dissolve", _dissolve)
+	# Held weapons use their own materials: drop them halfway through a dissolve.
+	if hand_r:
+		hand_r.visible = _dissolve < 0.5

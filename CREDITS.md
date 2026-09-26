@@ -18,7 +18,7 @@ where the pack shipped one).
 | Sci-Fi Essentials Kit (Standard) | Quaternius | https://quaternius.itch.io/sci-fi-essentials-kit | CC0 1.0 | Weapon models (rifle, sniper, revolver), health pack, crates, barrel, eye drone (ambient broadcast drones) |
 | Modular Sci-Fi MegaKit (Standard) | Quaternius | https://quaternius.itch.io/modular-sci-fi-megakit | CC0 1.0 | Corner column model and trim textures (grit detail texture for the procedural panels) |
 
-Textures from these packs were downscaled to 1024 px for mobile. Animations were
+Textures from these packs were downscaled to 512 px for mobile (smaller APK and VRAM use). Animations were
 extracted into a single library (`game/assets/characters/mannequin_anims.res`)
 by `game/tools/build_character_assets.gd`; the source GLBs are kept for reference.
 
