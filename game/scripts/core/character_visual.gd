@@ -1,12 +1,19 @@
 class_name CharacterVisual
 extends Node3D
-## Visual representation of an actor: styled mannequin, layered animation, weapon
-## models, hit flash / dissolve effects, procedural lean and dash afterimages.
+## Visual representation of an actor: textured fighter (or styled mannequin), layered
+## animation, weapon models, hit flash / dissolve effects, procedural lean and dash
+## afterimages.
 
 const ANIM_LIB := preload("res://assets/characters/mannequin_anims.res")
 const CHAR_SHADER := preload("res://shaders/character.gdshader")
 const GHOST_SHADER := preload("res://shaders/ghost.gdshader")
 const TRAIL_SHADER := preload("res://shaders/trail.gdshader")
+const ESPER_SHADER := preload("res://shaders/esper.gdshader")
+const ESPER_DIR := "res://assets/characters/esper/"
+## Which of the two hair textures each hairstyle was painted for.
+const HAIR_TEXTURE := {
+	"hair_long": 2, "hair_buns": 2, "hair_simple_parted": 1, "hair_buzzed": 1, "hair_buzzed_female": 1,
+}
 const SKELETON_PATH := "Armature/Skeleton3D"
 
 ## Grip setup, in right-hand bone space. The mannequin's hand bone has +Y along the
@@ -40,9 +47,9 @@ var guns := {}
 var current_gun: Node3D
 var muzzle: Marker3D
 var body_mat: ShaderMaterial
-var joint_mat: ShaderMaterial
-## Materials of the visor/backpack pieces (same effects as the body).
-var acc_mats: Array[ShaderMaterial] = []
+## Every material of the character (body, hair, eyes, accessories): they all take the
+## hit flash, dissolve, overdrive and close-camera fade.
+var mats: Array[ShaderMaterial] = []
 var style := {}
 
 var _flash := 0.0
@@ -64,6 +71,7 @@ var pose_offset := Transform3D.IDENTITY
 var _foot_trails: Array[TrailRibbon] = []
 
 static var _pack_mesh: ArrayMesh
+static var _phones_mesh: ArrayMesh
 
 
 func build(model_path: String, p_style: Dictionary) -> void:
@@ -75,6 +83,8 @@ func build(model_path: String, p_style: Dictionary) -> void:
 	for c in skeleton.get_children():
 		if c is MeshInstance3D:
 			mesh = c
+	if skeleton.has_node("Body"):
+		mesh = skeleton.get_node("Body")
 	anim.setup(model, ANIM_LIB, SKELETON_PATH)
 	twist = SpineTwistModifier.new()
 	skeleton.add_child(twist)
@@ -87,19 +97,98 @@ func build(model_path: String, p_style: Dictionary) -> void:
 	chest = BoneAttachment3D.new()
 	chest.bone_name = "spine_03"
 	skeleton.add_child(chest)
-	_apply_materials()
-	_build_accessories()
+	if style.has("outfit"):
+		_apply_esper()
+	else:
+		_apply_materials()
+		_build_accessories()
 
 
-func _make_char_mat(params: Dictionary) -> ShaderMaterial:
+func _make_char_mat(params: Dictionary, shader: Shader = CHAR_SHADER) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
-	m.shader = CHAR_SHADER
+	m.shader = shader
 	for k in params:
 		var v: Variant = params[k]
 		if v is Color:
 			v = Vector3(v.r, v.g, v.b)
 		m.set_shader_parameter(k, v)
+	mats.append(m)
 	return m
+
+
+static func _with(a: Dictionary, b: Dictionary) -> Dictionary:
+	var r := a.duplicate()
+	r.merge(b, true)
+	return r
+
+
+## Textured fighter: baked outfit on the body, tinted hair and eyebrows, coloured
+## irises and optional headphones.
+func _apply_esper() -> void:
+	var glow: Color = style.get("glow", Color(0.2, 0.9, 1.0))
+	var female := String(style.get("body", "m")) == "f"
+	var outfit: String = style["outfit"]
+	var common := {
+		"glow_color": glow, "dissolve_color": glow,
+		"rim_color": style.get("rim", glow.lerp(Color.WHITE, 0.4)), "rim_strength": style.get("rim_strength", 0.3),
+	}
+	body_mat = _make_char_mat(_with(common, {
+		"albedo_tex": load(ESPER_DIR + "outfits/%s_albedo.png" % outfit),
+		"mask_tex": load(ESPER_DIR + "outfits/%s_mask.png" % outfit),
+		"normal_tex": load(ESPER_DIR + ("T_Esper_Female_Normal.png" if female else "T_Esper_Male_Normal.png")),
+		"glow_strength": style.get("glow_strength", 2.4),
+	}), ESPER_SHADER)
+	var hair_name: String = style.get("hair", "")
+	var hair_tex := int(HAIR_TEXTURE.get(hair_name, 2 if female else 1))
+	var hair_mat := _make_char_mat(_with(common, {
+		"albedo_tex": load(ESPER_DIR + "hair/T_Hair_%d.png" % hair_tex),
+		"normal_tex": load(ESPER_DIR + "hair/T_Hair_%d_Normal.png" % hair_tex),
+		"use_mask": false, "roughness": 0.42, "specular": 0.6,
+		"tint": style.get("hair_color", Color(0.3, 0.22, 0.18)), "tint_boost": style.get("hair_boost", 1.9),
+	}), ESPER_SHADER)
+	var brow_mat := _make_char_mat(_with(common, {
+		"albedo_tex": load(ESPER_DIR + "hair/T_Hair_%d.png" % (2 if female else 1)),
+		"use_normal": false, "use_mask": false, "roughness": 0.6, "rim_strength": 0.0,
+		"tint": style.get("hair_color", Color(0.3, 0.22, 0.18)), "tint_boost": style.get("hair_boost", 1.9) * 0.7,
+	}), ESPER_SHADER)
+	var eye_mat := _make_char_mat(_with(common, {
+		"albedo_tex": load(ESPER_DIR + "T_Eye.png"), "use_normal": false, "use_mask": false,
+		"roughness": 0.12, "specular": 0.8, "rim_strength": 0.0,
+		"is_eye": true, "iris_color": style.get("eye_color", glow),
+	}), ESPER_SHADER)
+	for c in skeleton.get_children():
+		if not c is MeshInstance3D:
+			continue
+		var mi := c as MeshInstance3D
+		match String(mi.name):
+			"Body":
+				mi.material_override = body_mat
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			"Eyes":
+				mi.material_override = eye_mat
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			_:
+				mi.material_override = brow_mat
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if hair_name != "":
+		var hair := MeshInstance3D.new()
+		hair.mesh = load(ESPER_DIR + "hair/%s.res" % hair_name)
+		hair.material_override = hair_mat
+		head.add_child(hair)
+	if style.get("headphones", false):
+		var phones := MeshInstance3D.new()
+		phones.mesh = _get_phones_mesh()
+		phones.set_surface_override_material(0, _make_char_mat({
+			"base_color": style.get("phones_color", Color(0.08, 0.09, 0.11)), "metallic": 0.5, "roughness": 0.3,
+			"rim_color": glow, "rim_strength": 0.5, "rim_power": 2.5, "dissolve_color": glow,
+		}))
+		phones.set_surface_override_material(1, _make_char_mat({
+			"base_color": Color(0.03, 0.03, 0.04), "metallic": 0.2, "roughness": 0.3,
+			"emission_color": glow, "emission_strength": 3.2, "rim_strength": 0.0, "dissolve_color": glow,
+		}))
+		phones.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		head.add_child(phones)
+		phones.position = style.get("phones_offset", Vector3.ZERO)
 
 
 func _apply_materials() -> void:
@@ -111,7 +200,7 @@ func _apply_materials() -> void:
 		"rim_color": rim, "rim_strength": style.get("rim_strength", 0.9), "rim_power": 3.0,
 		"stripe_strength": style.get("stripe", 0.0), "stripe_color": glow, "dissolve_color": glow,
 	})
-	joint_mat = _make_char_mat({
+	var joint_mat := _make_char_mat({
 		"base_color": Color(0.05, 0.05, 0.06), "metallic": 0.2, "roughness": 0.4,
 		"emission_color": glow, "emission_strength": style.get("glow_strength", 2.6),
 		"rim_color": glow, "rim_strength": 0.4, "dissolve_color": glow,
@@ -126,9 +215,7 @@ func _apply_materials() -> void:
 
 
 func _make_acc_mat(params: Dictionary) -> ShaderMaterial:
-	var m := _make_char_mat(params)
-	acc_mats.append(m)
-	return m
+	return _make_char_mat(params)
 
 
 func _add_box(parent: Node3D, size: Vector3, pos: Vector3, mat: Material) -> MeshInstance3D:
@@ -198,6 +285,68 @@ static func _get_pack_mesh() -> ArrayMesh:
 		glow.append_from(nozzle, 0, Transform3D(Basis.IDENTITY, Vector3(side * 0.065, -0.14, 0.0)))
 	glow.commit(_pack_mesh)
 	return _pack_mesh
+
+
+## Headphones in Head-bone space (+Y up the head, +Z out of the face): surface 0 is
+## the band and ear cups, surface 1 the glowing rings on the cups.
+static func _get_phones_mesh() -> ArrayMesh:
+	if _phones_mesh:
+		return _phones_mesh
+	const EAR_Y := 0.068
+	const EAR_Z := -0.012
+	const CUP_X := 0.088
+	var shell := SurfaceTool.new()
+	shell.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var cup := CylinderMesh.new()
+	cup.top_radius = 0.036
+	cup.bottom_radius = 0.042
+	cup.height = 0.036
+	cup.radial_segments = 14
+	cup.rings = 1
+	for side in [-1.0, 1.0]:
+		var b := Basis(Vector3.BACK, -side * PI * 0.5)
+		shell.append_from(cup, 0, Transform3D(b, Vector3(side * CUP_X, EAR_Y, EAR_Z)))
+	# Band: an elliptical arch swept over the hair, flat and slightly wide.
+	var band := SurfaceTool.new()
+	band.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 20
+	var hw := 0.016
+	var th := 0.012
+	var rx := CUP_X
+	var ry := 0.146
+	for i in n:
+		var a0 := PI * float(i) / n
+		var a1 := PI * float(i + 1) / n
+		var p0 := Vector3(rx * cos(a0), EAR_Y + 0.035 + ry * sin(a0), EAR_Z)
+		var p1 := Vector3(rx * cos(a1), EAR_Y + 0.035 + ry * sin(a1), EAR_Z)
+		var o0 := Vector3(cos(a0) / rx, sin(a0) / ry, 0.0).normalized()
+		var o1 := Vector3(cos(a1) / rx, sin(a1) / ry, 0.0).normalized()
+		var z := Vector3(0.0, 0.0, hw)
+		var quads := [
+			[p0 + o0 * th - z, p1 + o1 * th - z, p1 + o1 * th + z, p0 + o0 * th + z],
+			[p0 + z, p1 + z, p1 - z, p0 - z],
+			[p0 - z, p1 - z, p1 + o1 * th - z, p0 + o0 * th - z],
+			[p0 + o0 * th + z, p1 + o1 * th + z, p1 + z, p0 + z],
+		]
+		for q in quads:
+			for idx in [0, 2, 1, 0, 3, 2]:
+				band.add_vertex(q[idx])
+	band.generate_normals()
+	band.index()
+	shell.append_from(band.commit(), 0, Transform3D.IDENTITY)
+	_phones_mesh = shell.commit()
+	var glow := SurfaceTool.new()
+	glow.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.024
+	ring.outer_radius = 0.033
+	ring.rings = 16
+	ring.ring_segments = 6
+	for side in [-1.0, 1.0]:
+		var b := Basis(Vector3.BACK, -side * PI * 0.5)
+		glow.append_from(ring, 0, Transform3D(b, Vector3(side * (CUP_X + 0.019), EAR_Y, EAR_Z)))
+	glow.commit(_phones_mesh)
+	return _phones_mesh
 
 
 # --- Weapons ------------------------------------------------------------
@@ -321,10 +470,7 @@ func set_fade(v: float) -> void:
 	if is_equal_approx(v, _fade):
 		return
 	_fade = v
-	if body_mat:
-		body_mat.set_shader_parameter("dither_fade", v)
-		joint_mat.set_shader_parameter("dither_fade", v)
-	for m in acc_mats:
+	for m in mats:
 		m.set_shader_parameter("dither_fade", v)
 
 
@@ -445,16 +591,10 @@ func tick(delta: float) -> void:
 	if current_gun:
 		var gm := current_gun.get_node("Model") as Node3D
 		gm.position = current_gun.get_meta("base_pos") + Vector3(_gun_kick * 0.07, 0.0, 0.0)
-	if body_mat:
-		body_mat.set_shader_parameter("hit_flash", _flash)
-		body_mat.set_shader_parameter("dissolve", _dissolve)
-		body_mat.set_shader_parameter("overdrive", _overdrive)
-		joint_mat.set_shader_parameter("hit_flash", _flash)
-		joint_mat.set_shader_parameter("dissolve", _dissolve)
-		joint_mat.set_shader_parameter("overdrive", _overdrive)
-		for m in acc_mats:
-			m.set_shader_parameter("hit_flash", _flash)
-			m.set_shader_parameter("dissolve", _dissolve)
+	for m in mats:
+		m.set_shader_parameter("hit_flash", _flash)
+		m.set_shader_parameter("dissolve", _dissolve)
+		m.set_shader_parameter("overdrive", _overdrive)
 	# Held weapons use their own materials: drop them halfway through a dissolve.
 	if hand_r:
 		hand_r.visible = _dissolve < 0.5

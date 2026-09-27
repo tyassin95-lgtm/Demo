@@ -17,8 +17,12 @@ where the pack shipped one).
 | Universal Animation Library 2 (Standard) | Quaternius | https://quaternius.itch.io/universal-animation-library-2 | CC0 1.0 | Female mannequin, sword combo/dash, slide, ninja jump, knockback, get-up animations |
 | Sci-Fi Essentials Kit (Standard) | Quaternius | https://quaternius.itch.io/sci-fi-essentials-kit | CC0 1.0 | Weapon models (rifle, sniper, revolver), health pack, crates, barrel, eye drone (ambient broadcast drones) |
 | Modular Sci-Fi MegaKit (Standard) | Quaternius | https://quaternius.itch.io/modular-sci-fi-megakit | CC0 1.0 | Corner column model and trim textures (grit detail texture for the procedural panels) |
+| Universal Base Characters (Standard) | Quaternius | https://quaternius.itch.io/universal-base-characters (via https://quaternius.com) | CC0 1.0 (`game/assets/characters/esper/License_Quaternius_UBC.txt`) | Male and female fighter bodies, eyes, eyebrows and hairstyles. The outfits are **original**: painted into the body texture by `tools/make_outfits.py` (the painted stubble is removed from the male face); hair and irises are tinted in the shader |
 
-Textures from these packs were downscaled to 512 px for mobile (smaller APK and VRAM use). Animations were
+Textures from these packs were downscaled to 512 px for mobile (smaller APK and VRAM use). The fighter
+scenes and head-space hair meshes are built from the Universal Base Characters glTFs by
+`game/tools/build_esper_assets.gd`; the unmodified 1024 px skin textures used as painting input are kept in
+`art/esper/`. Animations were
 extracted into a single library (`game/assets/characters/mannequin_anims.res`)
 by `game/tools/build_character_assets.gd`; the source GLBs are kept for reference.
 

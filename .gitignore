@@ -11,3 +11,5 @@ game/build/
 # Signing keys must never be committed
 *.keystore
 *.jks
+# Python caches
+__pycache__/

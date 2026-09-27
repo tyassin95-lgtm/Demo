@@ -23,7 +23,7 @@ const SEPARATION_RADIUS := 0.85
 @export var poise_max := 28.0
 @export var super_armor := false
 @export var damage_taken_mult := 1.0
-@export var model_path := "res://assets/characters/mannequin_m.scn"
+@export var model_path := "res://assets/characters/esper/esper_m.scn"
 @export var visual_scale := 1.0
 
 var health := 100.0

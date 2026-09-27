@@ -19,6 +19,7 @@ var defaults := {
 	"button_opacity": 0.8,
 	"left_handed": false,
 	"quality": 1,
+	"arena_time": 0,
 	"fps_cap": 60,
 	"show_fps": false,
 	"music_volume": 0.65,

@@ -57,21 +57,9 @@ func _force_touch() -> bool:
 func _setup_environment() -> void:
 	var we := WorldEnvironment.new()
 	env = Environment.new()
-	var sky := Sky.new()
-	var sm := ShaderMaterial.new()
-	sm.shader = load("res://shaders/sky.gdshader")
-	sky.sky_material = sm
-	sky.radiance_size = Sky.RADIANCE_SIZE_64
-	sky.process_mode = Sky.PROCESS_MODE_QUALITY
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_sky_contribution = 0.3
-	env.ambient_light_color = Color(0.24, 0.28, 0.38)
 	env.ambient_light_energy = 1.0
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 1.05
 	env.tonemap_white = 6.0
 	env.glow_enabled = true
 	env.glow_intensity = 0.9
@@ -86,9 +74,7 @@ func _setup_environment() -> void:
 	env.set_glow_level(4, 0.4)
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
-	env.fog_light_color = Color(0.32, 0.24, 0.4)
 	env.fog_light_energy = 1.0
-	env.fog_density = 0.003
 	env.fog_sky_affect = 0.15
 	env.fog_height = -12.0
 	env.fog_height_density = 0.06
@@ -99,9 +85,6 @@ func _setup_environment() -> void:
 	add_child(we)
 	sun = DirectionalLight3D.new()
 	sun.name = "Sun"
-	sun.rotation_degrees = Vector3(-28.0, -125.0, 0.0)
-	sun.light_color = Color(1.0, 0.78, 0.62)
-	sun.light_energy = 1.35
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	sun.directional_shadow_max_distance = 55.0
@@ -112,10 +95,9 @@ func _setup_environment() -> void:
 	# Cool rim fill from the opposite side (no shadows).
 	var fill := DirectionalLight3D.new()
 	fill.rotation_degrees = Vector3(-35.0, 60.0, 0.0)
-	fill.light_color = Color(0.45, 0.6, 1.0)
-	fill.light_energy = 0.35
 	fill.shadow_enabled = false
 	add_child(fill)
+	ArenaTheme.apply(env, sun, fill)
 
 
 func _setup_navigation() -> void:
@@ -152,6 +134,7 @@ func _setup_ui() -> void:
 	layer.add_child(controls)
 	controls.visible = Game.is_touch_device or _force_touch()
 	player.controls = controls
+	hud.controls = controls
 	var top := CanvasLayer.new()
 	top.layer = 20
 	top.process_mode = Node.PROCESS_MODE_ALWAYS

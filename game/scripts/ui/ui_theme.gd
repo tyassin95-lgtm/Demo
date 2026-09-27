@@ -24,6 +24,14 @@ static func font(bold: bool = false) -> Font:
 	return load("res://assets/fonts/Rajdhani-Bold.ttf" if bold else "res://assets/fonts/Rajdhani-SemiBold.ttf")
 
 
+## Slanted (synthetic italic) sport-style font for HUD numbers.
+static func italic_font(bold: bool = true) -> Font:
+	var fv := FontVariation.new()
+	fv.base_font = font(bold)
+	fv.variation_transform = Transform2D(Vector2(1.0, 0.0), Vector2(-0.22, 1.0), Vector2.ZERO)
+	return fv
+
+
 static func title_font() -> Font:
 	var base: FontFile = load("res://assets/fonts/Orbitron.ttf")
 	var fv := FontVariation.new()

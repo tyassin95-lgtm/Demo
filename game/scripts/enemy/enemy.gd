@@ -62,18 +62,18 @@ func setup(k: Kind, diff: float = 1.0) -> void:
 			dodge_chance = 0.3 + 0.15 * (diff - 1.0)
 			aggression = 0.65
 			poise_max = 26.0
-			model_path = "res://assets/characters/mannequin_f.scn"
-			style = {"base": Color(0.13, 0.13, 0.16), "rim": Color(1.0, 0.25, 0.15), "glow": Color(1.0, 0.25, 0.12),
-				"visor": Color(1.0, 0.2, 0.1), "stripe": 0.5, "metallic": 0.6, "roughness": 0.3, "rim_strength": 0.9,
-				"glow_strength": 3.0, "pack_color": Color(0.2, 0.05, 0.04)}
+			model_path = "res://assets/characters/esper/esper_f.scn"
+			style = {"outfit": "striker", "body": "f", "hair": "hair_long", "hair_color": Color(0.62, 0.1, 0.16),
+				"eye_color": Color(1.0, 0.25, 0.2), "glow": Color(1.0, 0.25, 0.12), "rim": Color(1.0, 0.4, 0.3)}
 		Kind.GUNNER:
 			max_health = 55.0 * lerpf(1.0, 1.3, diff - 1.0)
 			run_speed = 6.6
 			dodge_chance = 0.28 + 0.1 * (diff - 1.0)
 			poise_max = 22.0
-			style = {"base": Color(0.24, 0.22, 0.2), "rim": Color(1.0, 0.65, 0.1), "glow": Color(1.0, 0.6, 0.08),
-				"visor": Color(1.0, 0.75, 0.2), "stripe": 0.3, "metallic": 0.5, "roughness": 0.35, "rim_strength": 0.8,
-				"glow_strength": 2.6, "pack_color": Color(0.18, 0.12, 0.03)}
+			model_path = "res://assets/characters/esper/esper_m.scn"
+			style = {"outfit": "gunner", "body": "m", "hair": "hair_buzzed", "hair_color": Color(0.1, 0.08, 0.07),
+				"eye_color": Color(1.0, 0.65, 0.15), "glow": Color(1.0, 0.6, 0.08), "rim": Color(1.0, 0.7, 0.35),
+				"headphones": true, "phones_color": Color(0.9, 0.5, 0.1)}
 		Kind.BRUTE:
 			max_health = 240.0 * lerpf(1.0, 1.3, diff - 1.0)
 			run_speed = 5.2
@@ -81,9 +81,9 @@ func setup(k: Kind, diff: float = 1.0) -> void:
 			poise_max = 140.0
 			visual_scale = 1.38
 			damage_taken_mult = 0.9
-			style = {"base": Color(0.16, 0.1, 0.2), "rim": Color(1.0, 0.2, 0.75), "glow": Color(1.0, 0.2, 0.7),
-				"visor": Color(1.0, 0.3, 0.8), "stripe": 0.6, "metallic": 0.7, "roughness": 0.25, "rim_strength": 1.0,
-				"glow_strength": 3.2, "pack_color": Color(0.12, 0.04, 0.12)}
+			model_path = "res://assets/characters/esper/esper_m.scn"
+			style = {"outfit": "brute", "body": "m", "hair": "hair_buzzed", "hair_color": Color(0.5, 0.12, 0.55),
+				"eye_color": Color(1.0, 0.3, 0.85), "glow": Color(1.0, 0.2, 0.7), "rim": Color(1.0, 0.45, 0.85)}
 
 
 func _ready() -> void:

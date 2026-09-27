@@ -26,17 +26,6 @@ func _ready() -> void:
 func _build_world() -> void:
 	var we := WorldEnvironment.new()
 	var env := Environment.new()
-	var sky := Sky.new()
-	var sm := ShaderMaterial.new()
-	sm.shader = load("res://shaders/sky.gdshader")
-	sky.sky_material = sm
-	sky.radiance_size = Sky.RADIANCE_SIZE_64
-	sky.process_mode = Sky.PROCESS_MODE_QUALITY
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_sky_contribution = 0.3
-	env.ambient_light_color = Color(0.24, 0.28, 0.38)
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.tonemap_white = 6.0
 	env.glow_enabled = true
@@ -44,8 +33,6 @@ func _build_world() -> void:
 	env.glow_hdr_threshold = 0.85
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.36, 0.24, 0.42)
-	env.fog_density = 0.0035
 	env.fog_height = -12.0
 	env.fog_height_density = 0.06
 	env.adjustment_enabled = true
@@ -53,27 +40,22 @@ func _build_world() -> void:
 	we.environment = env
 	add_child(we)
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-28.0, -125.0, 0.0)
-	sun.light_color = Color(1.0, 0.78, 0.62)
-	sun.light_energy = 1.35
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	sun.directional_shadow_max_distance = 40.0
 	add_child(sun)
 	var fill := DirectionalLight3D.new()
 	fill.rotation_degrees = Vector3(-35.0, 60.0, 0.0)
-	fill.light_color = Color(0.45, 0.6, 1.0)
-	fill.light_energy = 0.35
 	add_child(fill)
+	ArenaTheme.apply(env, sun, fill)
 	var arena := ArenaBuilder.new()
 	add_child(arena)
 	arena.build()
 	_fighter = CharacterVisual.new()
 	add_child(_fighter)
-	_fighter.build("res://assets/characters/mannequin_m.scn", {
-		"base": Color(0.9, 0.92, 0.96), "rim": Color(0.25, 0.85, 1.0), "glow": Color(0.2, 0.9, 1.0),
-		"visor": Color(0.3, 1.0, 1.0), "stripe": 0.45, "metallic": 0.4, "roughness": 0.28,
-	})
+	var hero := Player.new()
+	_fighter.build(hero.model_path, hero.style)
+	hero.free()
 	_fighter.show_weapon(WeaponDB.weapon("arc_blade"))
 	_fighter.position = Vector3(0, 2.5, 0)
 	_fighter.rotation.y = PI * 1.12

@@ -352,6 +352,12 @@ func _draw_icon(name: String, c: Vector2, r: float, col: Color, w: WeaponDB.Weap
 					var dir := Vector2.from_angle(a * PI / 2.0)
 					draw_line(c + dir * s * 0.45, c + dir * s * 1.2, col, 3.0, true)
 				draw_circle(c, 3.0, col)
+				# Ammo left in the magazine, under the reticle icon.
+				if player and is_instance_valid(player):
+					var ammo: int = player.weapons.ammo[player.weapons.index]
+					var low := ammo <= w.mag_size / 4
+					var ac := Color(1.0, 0.45, 0.35, col.a) if low else Color(col.r, col.g, col.b, col.a * 0.9)
+					draw_string(_font_bold, c + Vector2(-40, r * 0.78), "%d" % ammo, HORIZONTAL_ALIGNMENT_CENTER, 80, int(r * 0.3), ac)
 		"jump":
 			var side := 0.0
 			if absf(move_vector.x) >= Player.DODGE_INPUT:

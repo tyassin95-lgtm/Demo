@@ -42,6 +42,7 @@ func _ready() -> void:
 	_slider(list, "Mouse sensitivity (PC)", "mouse_sensitivity", 0.2, 3.0, 0.05)
 	_section(list, "GRAPHICS")
 	_choice(list, "Quality", "quality", ["LOW", "MEDIUM", "HIGH"], [0, 1, 2])
+	_choice(list, "Arena time of day", "arena_time", ["DAY", "DUSK"], [0, 1])
 	_choice(list, "Frame rate cap", "fps_cap", ["30", "60", "90", "120"], [30, 60, 90, 120])
 	_toggle(list, "Show FPS", "show_fps")
 	_section(list, "AUDIO")

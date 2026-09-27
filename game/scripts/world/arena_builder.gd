@@ -26,9 +26,12 @@ var _materials := {}
 var _body: StaticBody3D
 var _neon := SurfaceTool.new()
 var _neon_used := false
+## Time-of-day palette (see ArenaTheme).
+var theme := {}
 
 
 func build() -> void:
+	theme = ArenaTheme.current()
 	_make_materials()
 	_body = StaticBody3D.new()
 	_body.name = "ArenaCollision"
@@ -44,11 +47,12 @@ func build() -> void:
 
 
 func _make_materials() -> void:
-	_materials["floor"] = _panel_mat(Color(0.2, 0.22, 0.27), Color(0.15, 0.16, 0.2), CYAN, 2.0, 0.07, 0.34, 0.4)
-	_materials["floor_core"] = _panel_mat(Color(0.15, 0.16, 0.2), Color(0.11, 0.11, 0.15), ORANGE, 1.5, 0.18, 0.3, 0.45)
-	_materials["wall"] = _panel_mat(Color(0.36, 0.4, 0.47), Color(0.28, 0.31, 0.37), CYAN, 1.5, 0.05, 0.6, 0.08)
-	_materials["block"] = _panel_mat(Color(0.72, 0.75, 0.8), Color(0.6, 0.63, 0.69), CYAN, 1.0, 0.0, 0.5, 0.05)
-	_materials["dark"] = _panel_mat(Color(0.08, 0.09, 0.12), Color(0.06, 0.07, 0.09), MAGENTA, 1.0, 0.08, 0.45, 0.5)
+	var t := theme
+	_materials["floor"] = _panel_mat(t["floor"][0], t["floor"][1], t["floor_light"], 2.0, 0.07, 0.34, 0.4)
+	_materials["floor_core"] = _panel_mat(t["core"][0], t["core"][1], t["core_light"], 1.5, 0.18, 0.3, 0.45)
+	_materials["wall"] = _panel_mat(t["wall"][0], t["wall"][1], t["wall_light"], 1.5, 0.05, 0.6, 0.08)
+	_materials["block"] = _panel_mat(t["block"][0], t["block"][1], t["wall_light"], 1.0, 0.0, 0.5, 0.05)
+	_materials["dark"] = _panel_mat(t["dark"][0], t["dark"][1], t["dark_light"], 1.0, 0.08, 0.45, 0.5)
 	var nm := ShaderMaterial.new()
 	nm.shader = NEON
 	nm.set_shader_parameter("color", Vector3(1, 1, 1))
@@ -194,8 +198,8 @@ func _layout() -> void:
 		box(Vector3(s * (HALF + 0.5), wh * 0.5, 0), Vector3(1.0, wh, HALF * 2), "wall")
 		neon(Vector3(-HALF, wh + 0.02, s * HALF), Vector3(HALF, wh + 0.02, s * HALF), CYAN, 0.1)
 		neon(Vector3(s * HALF, wh + 0.02, -HALF), Vector3(s * HALF, wh + 0.02, HALF), CYAN, 0.1)
-		neon(Vector3(-HALF, 0.6, s * (HALF - 0.01)), Vector3(HALF, 0.6, s * (HALF - 0.01)), Color(0.15, 0.5, 0.8), 0.05)
-		neon(Vector3(s * (HALF - 0.01), 0.6, -HALF), Vector3(s * (HALF - 0.01), 0.6, HALF), Color(0.15, 0.5, 0.8), 0.05)
+		neon(Vector3(-HALF, 0.6, s * (HALF - 0.01)), Vector3(HALF, 0.6, s * (HALF - 0.01)), theme["edge_neon"], 0.05)
+		neon(Vector3(s * (HALF - 0.01), 0.6, -HALF), Vector3(s * (HALF - 0.01), 0.6, HALF), theme["edge_neon"], 0.05)
 	# Invisible containment above the walls.
 	for s in [-1.0, 1.0]:
 		_invisible_wall(Vector3(0, 14.0, s * (HALF + 0.5)), Vector3(HALF * 2 + 2, 20.0, 1.0))
@@ -310,6 +314,9 @@ func _build_barrier() -> void:
 	mi.mesh = st.commit()
 	var m := ShaderMaterial.new()
 	m.shader = BARRIER
+	var bc: Color = theme["barrier"]
+	m.set_shader_parameter("color", Vector3(bc.r, bc.g, bc.b))
+	m.set_shader_parameter("intensity", theme["barrier_intensity"])
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
@@ -339,6 +346,10 @@ func _build_city() -> void:
 	mi.mesh = st.commit()
 	var m := ShaderMaterial.new()
 	m.shader = CITY
+	for k in [["facade", "city_facade"], ["window_a", "city_window_a"], ["window_b", "city_window_b"]]:
+		var c: Color = theme[k[1]]
+		m.set_shader_parameter(k[0], Vector3(c.r, c.g, c.b))
+	m.set_shader_parameter("window_strength", theme["city_windows"])
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
@@ -351,7 +362,7 @@ func _build_decor() -> void:
 	sign.font = load("res://assets/fonts/Orbitron.ttf")
 	sign.font_size = 220
 	sign.pixel_size = 0.012
-	sign.modulate = Color(0.45, 0.95, 1.0, 0.9)
+	sign.modulate = theme["sign"]
 	sign.outline_size = 0
 	sign.shaded = false
 	sign.double_sided = true
@@ -362,7 +373,7 @@ func _build_decor() -> void:
 	sub.font = load("res://assets/fonts/Rajdhani-SemiBold.ttf")
 	sub.font_size = 120
 	sub.pixel_size = 0.012
-	sub.modulate = Color(1.0, 0.55, 0.25, 0.85)
+	sub.modulate = theme["sign_sub"]
 	sub.shaded = false
 	sub.position = Vector3(0, 6.6, -HALF - 1.0)
 	add_child(sub)
@@ -428,7 +439,7 @@ func _build_decor() -> void:
 			lamp.mesh = sph
 			var lm := StandardMaterial3D.new()
 			lm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			lm.albedo_color = Color(2.2, 1.6, 1.1)
+			lm.albedo_color = theme["lamp"]
 			lamp.material_override = lm
 			add_child(lamp)
 			lamp.global_position = base + Vector3(0, 21.0, 0)

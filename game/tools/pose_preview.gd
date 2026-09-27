@@ -12,7 +12,7 @@ func _run() -> void:
 	var weapon_id: String = args[1]
 	var anim_name: String = args[2]
 	var t: float = float(args[3])
-	var model_path: String = args[4] if args.size() > 4 else "res://assets/characters/mannequin_m.scn"
+	var model_path: String = args[4] if args.size() > 4 else "res://assets/characters/esper/esper_m.scn"
 	var world := Node3D.new()
 	root.add_child(world)
 	var env := WorldEnvironment.new()
@@ -30,7 +30,11 @@ func _run() -> void:
 	world.add_child(sun)
 	var cv := CharacterVisual.new()
 	world.add_child(cv)
-	cv.build(model_path, {"base": Color(0.88, 0.9, 0.94), "glow": Color(0.2, 0.9, 1.0), "rim": Color(0.2, 0.9, 1.0), "stripe": 0.6})
+	if model_path.contains("esper"):
+		cv.build(model_path, {"outfit": "player", "body": "m", "hair": "hair_simple_parted", "hair_color": Color(0.86, 0.9, 0.98),
+			"glow": Color(0.2, 0.9, 1.0), "headphones": true})
+	else:
+		cv.build(model_path, {"base": Color(0.88, 0.9, 0.94), "glow": Color(0.2, 0.9, 1.0), "rim": Color(0.2, 0.9, 1.0), "stripe": 0.6})
 	var w := WeaponDB.weapon(weapon_id)
 	cv.show_weapon(w)
 	if anim_name == "upper":

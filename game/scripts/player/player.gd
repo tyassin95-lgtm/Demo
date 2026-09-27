@@ -127,10 +127,11 @@ func _init() -> void:
 	max_health = 150.0
 	poise_max = 34.0
 	flinch_immunity_after_hit = 0.7
+	model_path = "res://assets/characters/esper/esper_m.scn"
 	style = {
-		"base": Color(0.9, 0.92, 0.96), "rim": Color(0.25, 0.85, 1.0), "glow": Color(0.2, 0.9, 1.0),
-		"visor": Color(0.3, 1.0, 1.0), "stripe": 0.45, "metallic": 0.4, "roughness": 0.28,
-		"rim_strength": 0.8, "glow_strength": 2.8,
+		"outfit": "player", "body": "m", "hair": "hair_simple_parted", "hair_color": Color(0.86, 0.9, 0.98),
+		"eye_color": Color(0.2, 0.65, 1.0), "glow": Color(0.2, 0.9, 1.0), "rim": Color(0.55, 0.85, 1.0),
+		"headphones": true,
 	}
 
 
