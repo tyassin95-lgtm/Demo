@@ -17,9 +17,9 @@ func _ready() -> void:
 	fm.albedo_color = Color(0.2, 0.22, 0.3)
 	floor_mesh.material_override = fm
 	add_child(floor_mesh)
-	var player := Player.new()
-	_add(player.model_path, player.style, 1.0, Vector3(-2.4, 0, 0), "arc_blade")
-	player.free()
+	for i in Player.FIGHTERS.size():
+		var look := Player.fighter_look(i)
+		_add(look["model"], look["style"], 1.0, Vector3(-4.0 + i * 1.6, 0, 0), "arc_blade")
 	var x := -0.8
 	for k in [Enemy.Kind.STRIKER, Enemy.Kind.GUNNER, Enemy.Kind.BRUTE]:
 		var e := Enemy.new()

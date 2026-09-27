@@ -122,17 +122,32 @@ var _pad_flight := false
 var _land_anim_cd := 0.0
 
 
+## Selectable player fighters (white tracksuit with blue trim, headphones).
+const FIGHTERS := [
+	{"name": "KAI", "model": "res://assets/characters/esper/esper_m.scn", "style": {
+		"outfit": "player", "body": "m", "hair": "hair_simple_parted", "hair_color": Color(0.86, 0.9, 0.98),
+		"eye_color": Color(0.2, 0.65, 1.0), "glow": Color(0.2, 0.9, 1.0), "rim": Color(0.55, 0.85, 1.0),
+		"headphones": true}},
+	{"name": "RIN", "model": "res://assets/characters/esper/esper_f.scn", "style": {
+		"outfit": "player_f", "body": "f", "hair": "hair_buns", "hair_color": Color(0.98, 0.72, 0.86),
+		"eye_color": Color(0.25, 0.7, 1.0), "glow": Color(0.2, 0.9, 1.0), "rim": Color(0.55, 0.85, 1.0),
+		"headphones": true}},
+]
+
+
+static func fighter_look(i: int) -> Dictionary:
+	var f: Dictionary = FIGHTERS[clampi(i, 0, FIGHTERS.size() - 1)]
+	return {"model": f["model"], "style": (f["style"] as Dictionary).duplicate()}
+
+
 func _init() -> void:
 	team = Game.TEAM_PLAYER
 	max_health = 150.0
 	poise_max = 34.0
 	flinch_immunity_after_hit = 0.7
-	model_path = "res://assets/characters/esper/esper_m.scn"
-	style = {
-		"outfit": "player", "body": "m", "hair": "hair_simple_parted", "hair_color": Color(0.86, 0.9, 0.98),
-		"eye_color": Color(0.2, 0.65, 1.0), "glow": Color(0.2, 0.9, 1.0), "rim": Color(0.55, 0.85, 1.0),
-		"headphones": true,
-	}
+	var look := fighter_look(int(Settings.get_value("fighter")))
+	model_path = look["model"]
+	style = look["style"]
 
 
 func _ready() -> void:

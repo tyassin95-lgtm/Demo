@@ -20,6 +20,7 @@ var defaults := {
 	"left_handed": false,
 	"quality": 1,
 	"arena_time": 0,
+	"fighter": 0,
 	"fps_cap": 60,
 	"show_fps": false,
 	"music_volume": 0.65,

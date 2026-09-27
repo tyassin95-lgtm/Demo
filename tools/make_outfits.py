@@ -234,7 +234,7 @@ def bake(style, gender):
     paint(pad * band(ang_leg, 1.15, 2.0, 0.05) * band(y, knee - 0.03, knee + 0.05, 0.006), accent, 0.2, 0.35)
     paint(legs * band(y, ankle + 0.03, ankle + 0.075, 0.005), cuff, 0.0, 0.6)
     # --- Jacket: raglan shoulder yoke, side panels, zip, collar, hem, sleeves.
-    yoke_line = chest + 0.05 + (ax - 0.05) * 0.35
+    yoke_line = chest + 0.05 + style.get("yoke_up", 0.0) + (ax - 0.05) * 0.35
     yoke = torso * band(y, yoke_line, 9.0, 0.006) + arm * band(ax, 0.0, shoulder_x + 0.07, 0.008) * band(ang_arm, -0.9, 0.9, 0.08)
     paint(yoke, yoke_c, 0.0, 0.55)
     paint(torso * line(y, yoke_line, 0.012), stripe, 0.0, 0.45)
@@ -250,7 +250,7 @@ def bake(style, gender):
     paint(belt, srgb(style.get("belt", "#121419")), 0.2, 0.45)
     paint(belt * front * band(ax, -1, 0.028, 0.004), trim, 0.75, 0.25)
     # Emblem on the left chest (a ring with a dot).
-    ex, ey = 0.068, chest + 0.03
+    ex, ey = 0.068, chest + 0.03 + style.get("yoke_up", 0.0) * 1.4
     rr = np.sqrt((x - ex) ** 2 + (y - ey) ** 2)
     lit(torso * front * (line(rr, 0.02, 0.008) + (rr < 0.009)), 0.9)
     # Sleeves: two stripes down the outside, dark cuffs with a glowing edge.
@@ -286,15 +286,16 @@ STYLES = {
     # Player (blue team): white tracksuit with blue collar, cuffs and stripes, white sneakers.
     "player": dict(gender="m", skin="light", jacket="#f1f4f8", accent="#2f7df0", dark="#1b2a4a", pants="#e9edf3",
                    glow="#35e6ff", panel="#cfd9ea", collar="#2f6fe0", cuff="#2f6fe0", stripe="#2f7df0",
-                   yoke="#f1f4f8", pad="#2f6fe0", gloves=True, glove="#1c2130", shoe="#f4f6fa", sole="#2f6fe0"),
+                   yoke="#f1f4f8", pad="#2f6fe0", gloves=True, glove="#1c2130", shoe="#f4f6fa", sole="#2f6fe0", belt="#22345a"),
     # Female variant of the player's outfit.
     "player_f": dict(gender="f", skin="light", jacket="#f1f4f8", accent="#2f7df0", dark="#1b2a4a", pants="#e9edf3",
                      glow="#35e6ff", panel="#cfd9ea", collar="#2f6fe0", cuff="#2f6fe0", stripe="#2f7df0",
-                     yoke="#f1f4f8", pad="#2f6fe0", gloves=True, glove="#1c2130", shoe="#f4f6fa", sole="#2f6fe0",
-                     crop_top=True),
+                     yoke="#f1f4f8", pad="#2f6fe0", gloves=True, glove="#1c2130", shoe="#f4f6fa", sole="#2f6fe0", belt="#22345a",
+                     crop_top=True, yoke_up=0.05),
     # Rival team strikers: black crop jacket with red, shorts, gloves.
     "striker": dict(gender="f", skin="light", jacket="#23252d", accent="#e2344b", dark="#121318", pants="#16171c",
-                    glow="#ff4a5c", panel="#3a1016", gloves=True, crop_top=True, shorts=True, shoe="#2a2d36", sole="#e2344b"),
+                    glow="#ff4a5c", panel="#3a1016", gloves=True, crop_top=True, shorts=True, shoe="#2a2d36", sole="#e2344b",
+                    yoke_up=0.05),
     # Gunners: charcoal jacket with orange yoke, cargo-grey pants.
     "gunner": dict(gender="m", skin="dark", jacket="#30343d", accent="#ff8a1f", dark="#16181d", pants="#3a3f38",
                    glow="#ffb347", panel="#4a2a08", gloves=True, shoe="#1e2128", sole="#ff8a1f"),

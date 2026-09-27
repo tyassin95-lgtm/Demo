@@ -10,6 +10,7 @@ var _settings: SettingsPanel
 var _info: PanelContainer
 var _info_label: RichTextLabel
 var _fighter: CharacterVisual
+var _fighter_label: Label
 var _pose_timer := 0.0
 var _poses := ["Sword_Regular_A", "Sword_Regular_B", "Sword_Regular_C", "Sword_Attack"]
 var _pose_i := 0
@@ -51,15 +52,7 @@ func _build_world() -> void:
 	var arena := ArenaBuilder.new()
 	add_child(arena)
 	arena.build()
-	_fighter = CharacterVisual.new()
-	add_child(_fighter)
-	var hero := Player.new()
-	_fighter.build(hero.model_path, hero.style)
-	hero.free()
-	_fighter.show_weapon(WeaponDB.weapon("arc_blade"))
-	_fighter.position = Vector3(0, 2.5, 0)
-	_fighter.rotation.y = PI * 1.12
-	_fighter.anim.set_base("idle_blade", 0.0)
+	_spawn_fighter()
 	_cam = Camera3D.new()
 	_cam.fov = 50.0
 	# Shift the frustum so the fighter sits on the right, clear of the menu.
@@ -87,6 +80,33 @@ func _process(delta: float) -> void:
 			get_tree().create_timer(0.8).timeout.connect(func() -> void:
 				if is_instance_valid(_fighter) and _fighter.blade:
 					_fighter.blade.set_trail(false))
+
+
+## Shows the selected fighter in the lobby (rebuilt when the choice changes).
+func _spawn_fighter() -> void:
+	if _fighter:
+		_fighter.queue_free()
+	_fighter = CharacterVisual.new()
+	add_child(_fighter)
+	var look := Player.fighter_look(int(Settings.get_value("fighter")))
+	_fighter.build(look["model"], look["style"])
+	_fighter.show_weapon(WeaponDB.weapon("arc_blade"))
+	_fighter.position = Vector3(0, 2.5, 0)
+	_fighter.rotation.y = PI * 1.12
+	_fighter.anim.set_base("idle_blade", 0.0)
+
+
+func _cycle_fighter(step: int) -> void:
+	var n := Player.FIGHTERS.size()
+	Settings.set_value("fighter", (int(Settings.get_value("fighter")) + step + n) % n)
+	Audio.play("ui_toggle", -4.0)
+	_spawn_fighter()
+	_update_fighter_label()
+
+
+func _update_fighter_label() -> void:
+	if _fighter_label:
+		_fighter_label.text = Player.FIGHTERS[int(Settings.get_value("fighter")) % Player.FIGHTERS.size()]["name"]
 
 
 func _build_ui() -> void:
@@ -149,6 +169,32 @@ func _build_ui() -> void:
 	_add_button("CREDITS", func() -> void: _show_info(_credits_text()))
 	if not OS.has_feature("mobile"):
 		_add_button("QUIT", func() -> void: get_tree().quit())
+	# Fighter select under the character (lobby style).
+	var sel := HBoxContainer.new()
+	sel.add_theme_constant_override("separation", 10)
+	UITheme.place(sel, Vector4(1, 1, 1, 1), Vector4(-470, -130, -110, -64))
+	sel.alignment = BoxContainer.ALIGNMENT_CENTER
+	_ui.add_child(sel)
+	var prev := Button.new()
+	prev.text = "<"
+	prev.custom_minimum_size = Vector2(64, 60)
+	prev.pressed.connect(_cycle_fighter.bind(-1))
+	sel.add_child(prev)
+	_fighter_label = Label.new()
+	_fighter_label.custom_minimum_size = Vector2(190, 60)
+	_fighter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_fighter_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_fighter_label.add_theme_font_override("font", UITheme.italic_font(true))
+	_fighter_label.add_theme_font_size_override("font_size", 34)
+	_fighter_label.add_theme_color_override("font_outline_color", Color(0.01, 0.02, 0.05, 0.85))
+	_fighter_label.add_theme_constant_override("outline_size", 8)
+	sel.add_child(_fighter_label)
+	var next := Button.new()
+	next.text = ">"
+	next.custom_minimum_size = Vector2(64, 60)
+	next.pressed.connect(_cycle_fighter.bind(1))
+	sel.add_child(next)
+	_update_fighter_label()
 	var ver := Label.new()
 	ver.text = "v%s · original fan-made gameplay study" % ProjectSettings.get_setting("application/config/version", "1.0")
 	ver.add_theme_font_size_override("font_size", 18)
@@ -250,7 +296,7 @@ Ctrl crouch · Shift overdrive · Z camera view · 1-4 / wheel weapons · R relo
 func _credits_text() -> String:
 	return """[b][color=#4de6ff]NEON RIFT[/color][/b] – an original gameplay study inspired by the feel of fast arena action games. No assets, names or designs from any commercial game are used.
 
-[b]Characters & animations:[/b] Quaternius – Universal Animation Library 1 & 2, Sci-Fi Essentials Kit, Modular Sci-Fi MegaKit (CC0)
+[b]Characters & animations:[/b] Quaternius – Universal Base Characters, Universal Animation Library 1 & 2, Sci-Fi Essentials Kit, Modular Sci-Fi MegaKit (CC0). Outfits painted for this project
 [b]Effects textures & sounds:[/b] Kenney – Particle Pack, Sci-Fi / Impact / Interface / Digital / RPG audio (CC0)
 [b]Music:[/b] "Hyper Ultra-Racing" by cynicmusic (CC0) · "Cyberpunk Moonlight Sonata" by Joth (CC0), via OpenGameArt
 [b]Fonts:[/b] Orbitron (The Orbitron Project Authors) and Rajdhani (Indian Type Foundry), SIL Open Font License 1.1

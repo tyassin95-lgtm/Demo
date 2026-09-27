@@ -562,9 +562,13 @@ func _draw_enemy_bars() -> void:
 			var p := sp - Vector2(w * 0.5, 0)
 			draw_rect(Rect2(p - Vector2(1, 1), Vector2(w + 2, 8)), Color(0, 0, 0, 0.6))
 			draw_rect(Rect2(p, Vector2(w * fr, 6)), col)
+			# Name tag in the rival team colour.
+			if dist < 28.0:
+				var tag: String = Enemy.Kind.keys()[e.kind]
+				_txt(_font_bold, p + Vector2(-40, -5), tag, HORIZONTAL_ALIGNMENT_CENTER, w + 80, 16, Color(1.0, 0.45, 0.4, 0.9))
 			if (e.kind == Enemy.Kind.GUNNER and e.ai == Enemy.AI.AIM) or e.ai == Enemy.AI.WINDUP:
 				var warn := Color(1.0, 0.8, 0.2) if e.ai == Enemy.AI.AIM else Color(1.0, 0.3, 0.2)
-				draw_string(_font_bold, sp + Vector2(-6, -8), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 34, warn)
+				_txt(_font_bold, sp + Vector2(-6, -24), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 34, warn)
 		else:
 			# Off-screen indicator on an ellipse around the screen center.
 			var dir3 := e.global_position - cam3d.global_position

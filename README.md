@@ -15,8 +15,8 @@ with an original identity, original code and legally usable assets only.
 
 | Area | Details |
 |---|---|
-| Arena | *Stratos Deck* — a floating sky platform at dusk: raised core with ramps, four towers joined by high walkways, wall-jump walls, pillars, cover, 6 jump pads, 5 repair kits, energy barrier, neon city below, broadcast drones |
-| Player | One fighter (styled mannequin android) with 4 weapons, stamina (SP), overdrive meter |
+| Arena | *Stratos Deck* — a floating sky platform (bright daytime by default, neon dusk as an option): raised core with ramps, four towers joined by high walkways, wall-jump walls, pillars, cover, 6 jump pads, 5 repair kits, energy barrier, city below, broadcast drones |
+| Player | Pick **KAI** or **RIN** in the lobby: fighters in a white tracksuit with blue trim, headphones and anime-coloured hair, with 4 weapons, stamina (SP), overdrive meter |
 | Enemies | **Striker** (fast blade fighter: telegraphed combos, dash slashes, dodges, circling), **Gunner** (keeps range, strafes, telegraphed bursts of dodgeable bolts), **Brute** (big, super-armored, charges and ground slams) |
 | Modes | **Wave Assault** (5 escalating waves, score, combo multiplier, rank) and **Training Ground** (passive, respawning targets) |
 
@@ -66,13 +66,22 @@ game data was used):
   off-screen threat arrows and hit-direction indicators keep you aware.
 
 ### Presentation
+- **Look inspired by S4-style sports-arena shooters, built from free assets:** human
+  fighters (Quaternius' CC0 Universal Base Characters) wearing original sportswear painted
+  into their textures by `tools/make_outfits.py` — blue team player in a white tracksuit,
+  rival team in black/red, charcoal/orange and black/magenta — with tinted hair, coloured
+  irises and procedural headphones; a bright daytime venue with blue sky and clouds.
+- **S4-style HUD layout:** arched HP/SP gauges at the bottom centre with hexagon badges
+  (overdrive, ammo), round radar top-left, clock plate with KO and hostile counts at the
+  top centre, kill feed, big italic COMBO counter, four-dot crosshair, red name tags.
 - Layered animation: phase-synced locomotion blending, upper-body aiming layer with
   spine twist for strafing/backpedalling, crossfaded full-body action layer, procedural
   leaning, somersault/cartwheel flips, dodge afterimages.
 - VFX: blade trails, slash arcs, sparks, hit flashes, muzzle flashes, tracers, rail beams,
   explosions, shockwaves, spawn beams, damage numbers, speed lines, dissolve-in/out.
-- Procedural sky (ringed planet, stars, clouds), glow, ACES tonemapping, fog, dynamic
-  shadows, emissive neon, animated jump pads and hex energy barrier.
+- Procedural sky (day: blue gradient and drifting clouds; dusk: stars and a ringed
+  planet), glow, ACES tonemapping, fog, dynamic shadows, emissive neon, animated jump pads
+  and hex energy barrier.
 - Music: driving drum & bass battle loop (seamless 32-bar loop) and a menu theme; ~60 SFX.
 
 ## Controls
@@ -95,7 +104,8 @@ L3 sprint, R3 camera view.
 **Settings:** look sensitivity, scoped sensitivity, mouse sensitivity, invert Y, aim assist,
 camera view (centre/right/left shoulder), optional sprint-by-pushing-the-stick,
 button size/opacity, left-handed layout, vibration, graphics quality (Low/Medium/High),
-frame-rate cap (30/60/90/120), FPS counter, volumes.
+arena time of day (day/dusk), frame-rate cap (30/60/90/120), FPS counter, volumes.
+The fighter (KAI/RIN) is picked with the arrows under the character in the main menu.
 
 ## Building the APK
 
@@ -126,10 +136,20 @@ godot --headless --path . --fixed-fps 60 res://scenes/arena.tscn -- --bot --quit
 # Screenshots: -- --shots=/tmp/out --shot-frames=60,120 --quit-frame=121 (needs a display)
 # Character close-up sheet (materials, accessories, dissolve, near-camera fade; needs a display)
 godot --path . --rendering-method mobile res://tests/closeup_film.tscn -- /tmp/closeup.png
+# Character lineup (both fighters and all enemies, front and back): -- <out.png> [zoom] [x] [y]
+godot --path . --rendering-method mobile res://tests/lineup.tscn -- /tmp/lineup.png
+# S4 moves filmstrip (somersault, dive dodges, air dodge, wall kick flight, crouch walk)
+godot --path . --rendering-method mobile --fixed-fps 60 res://tests/moves_film.tscn -- /tmp/moves.png
 ```
 
 - `game/tools/build_character_assets.gd` extracts the used animations from the Universal
-  Animation Library GLBs into one library and builds standalone mannequin scenes.
+  Animation Library GLBs into one library.
+- `tools/make_outfits.py` (Python 3 + numpy, Pillow, scipy) paints the outfits into the
+  Universal Base Characters' UV layout: each texel is mapped back to its rest-pose body
+  position, so panels, stripes, zips, knee pads, sneakers and glow trims follow the body.
+  Output: `game/assets/characters/esper/outfits/<style>_albedo.png` and `_mask.png`.
+- `game/tools/build_esper_assets.gd` turns the character glTFs into the game's body
+  scenes (`esper_m.scn`, `esper_f.scn`) and head-bone hair meshes.
 - `tools/synth_sfx.py` regenerates the original synthesized sound effects.
 
 ## Project layout
