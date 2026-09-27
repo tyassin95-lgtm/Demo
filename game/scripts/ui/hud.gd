@@ -35,15 +35,19 @@ var _last_hp := -1.0
 var _od_flash := 0.0
 var _speed_amount := 0.0
 const TIPS := [
-	"Push the stick to the edge to SPRINT (uses SP)",
-	"Press JUMP next to a wall to WALL-KICK — chain them between walls",
-	"Sprint along a wall in mid-air to WALL-RUN, then jump off",
-	"DASH has invulnerability frames: dodge through attacks and bolts",
-	"ATTACK while sprinting or dashing for a lunging DASH SLASH",
-	"In the air: ATTACK, then ATTACK again to PLUNGE",
-	"Cancel attack recovery with DASH or JUMP to keep the pressure on",
+	"Flick the stick forward twice (or tap SPRINT) to sprint",
+	"JUMP while pushing left/right = SIDE DODGE (20 SP)",
+	"JUMP again mid-dodge to cancel its end lag, then dodge again",
+	"During a jump, JUMP next to a wall to WALL JUMP (20 SP)",
+	"Wall jumps bounce like a mirror: angle in = angle out",
+	"Wall jump at the top edge of a wall to vault over it",
+	"Sprinting in mid-air drops you faster: bunny hop!",
+	"Knocked flying? Press JUMP to land on your feet",
+	"Knocked down? Dodge to spring back up",
+	"ATTACK while sprinting for a lunging DASH SLASH",
+	"You run faster holding the blade than a gun",
+	"CROUCH ducks under gunfire, but you can't attack",
 	"Hold ATTACK and drag to aim while firing",
-	"Scatter Cannon SPECIAL: RECOIL JUMP high into the air",
 	"Jump pads launch you onto the towers and walkways",
 	"Deal damage to fill OVERDRIVE, then tap the lightning button",
 	"Watch for the red ! — enemies telegraph their attacks",
@@ -165,8 +169,8 @@ func _process(delta: float) -> void:
 	# Speed lines.
 	var spd := Vector3(player.velocity.x, 0, player.velocity.z).length()
 	var sl := clampf((spd - 10.0) / 10.0, 0.0, 1.0)
-	if player.state == Actor.State.DASH:
-		sl = 1.0
+	if player.state == Actor.State.DODGE and player.dodge_time < Player.DODGE_TIME:
+		sl = 0.8
 	_speed_amount = move_toward(_speed_amount, sl * 0.8, delta * 4.0)
 	_speed_mat.set_shader_parameter("amount", _speed_amount)
 	# Combo.

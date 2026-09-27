@@ -10,6 +10,8 @@ enum Kind { STRIKER, GUNNER, BRUTE }
 enum AI { CHASE, CIRCLE, ENGAGE, RETREAT, STRAFE, AIM, RECOVER, USE_PAD, WINDUP }
 
 const SCORE := {Kind.STRIKER: 100, Kind.GUNNER: 120, Kind.BRUTE: 300}
+const DODGE_SPEED := 15.0
+const DODGE_TIME := 0.28
 
 static var melee_tokens := 0
 static var max_tokens := 2
@@ -199,8 +201,8 @@ func _actor_update(dt: float) -> void:
 	match state:
 		State.ATTACK:
 			_attack_motion(dt)
-		State.DASH:
-			_dash_motion(dt)
+		State.DODGE:
+			_dodge_motion(dt)
 		_:
 			think_timer -= dt
 			if think_timer <= 0.0:
@@ -316,10 +318,7 @@ func _maybe_dodge(dist: float) -> void:
 			threatened = true
 	if threatened and randf() < dodge_chance:
 		dodge_cd = randf_range(1.6, 3.0)
-		var d := _to_target().normalized()
-		var side := Vector3(d.z, 0, -d.x) * (1.0 if randf() < 0.5 else -1.0)
-		var dir := (side + (-d if dist < 3.0 else Vector3.ZERO) * 0.6).normalized()
-		_start_dash(dir)
+		_start_dodge(1.0 if randf() < 0.5 else -1.0)
 
 
 ## Telegraph before melee attacks: stop, face the player, blade glint + cue.
@@ -379,7 +378,7 @@ func _act(dt: float) -> void:
 		AI.CHASE:
 			wish = _nav_dir(target.global_position)
 			if dist > 10.0:
-				speed = run_speed * 1.3
+				speed = run_speed * 1.5
 		AI.CIRCLE:
 			var side := Vector3(dir.z, 0, -dir.x) * strafe_sign
 			var radial := dir * clampf((dist - 4.5) * 0.5, -1.0, 1.0)
@@ -529,15 +528,23 @@ func _find_pad_to(goal: Vector3) -> JumpPad:
 	return best
 
 
-func _start_dash(dir: Vector3) -> void:
-	_dash_dir = dir
-	_dash_time = 0.22
-	invuln = 0.15
-	set_state(State.DASH)
-	velocity = dir * 18.0
-	visual.anim.play_action("Roll", 2.4, 0.04, 0.18, 0.12, 0.34)
-	facing = Actor.yaw_from_dir(dir)
-	visual.rotation.y = facing
+## Side dodge (same rules as the player's: sideways only, no invulnerability, but
+## flinches can't interrupt it). Female fighters cartwheel, the others duck and slide.
+func _start_dodge(side: float) -> void:
+	_face_target()
+	var fwd := forward()
+	_dash_dir = Vector3(-fwd.z, 0.0, fwd.x) * side
+	_dash_time = 0.0
+	set_state(State.DODGE)
+	velocity.x = _dash_dir.x * DODGE_SPEED
+	velocity.z = _dash_dir.z * DODGE_SPEED
+	if kind == Kind.STRIKER:
+		velocity.y = 3.5
+		visual.anim.play_action("NinjaJump_Start", 1.7, 0.03, 0.2, 0.15, DODGE_TIME + 0.1)
+		visual.spin(Vector3.FORWARD, side, DODGE_TIME + 0.12)
+	else:
+		visual.anim.play_action("Slide_Start", 2.3, 0.03, 0.12, 0.28, DODGE_TIME)
+		visual_yaw_offset = wrapf(Actor.yaw_from_dir(_dash_dir) - facing, -PI, PI)
 	Audio.play_at("dash", global_position, -6.0)
 	visual.spawn_afterimage(style.get("glow", Color.RED), 0.25)
 
@@ -554,12 +561,19 @@ func lock_on_lunge(speed: float, time: float) -> void:
 	weapons.lunge_time = time
 
 
-func _dash_motion(dt: float) -> void:
-	_dash_time -= dt
-	velocity.x = _dash_dir.x * 18.0
-	velocity.z = _dash_dir.z * 18.0
+func _dodge_motion(dt: float) -> void:
+	_dash_time += dt
+	if _dash_time < DODGE_TIME:
+		var k := _dash_time / DODGE_TIME
+		var spd := lerpf(DODGE_SPEED, 5.0, k * k)
+		velocity.x = _dash_dir.x * spd
+		velocity.z = _dash_dir.z * spd
+	else:
+		steer_horizontal(Vector3.ZERO, 30.0, dt)
+		visual_yaw_offset = lerp_angle(visual_yaw_offset, 0.0, clampf(dt * 12.0, 0.0, 1.0))
 	apply_gravity(dt)
-	if _dash_time <= 0.0:
+	if _dash_time >= DODGE_TIME + 0.2:
+		visual_yaw_offset = 0.0
 		set_state(State.NORMAL)
 
 
@@ -600,7 +614,7 @@ func _update_anim() -> void:
 	var anim := visual.anim
 	var hv := Vector3(velocity.x, 0, velocity.z)
 	var spd := hv.length()
-	if state == State.DASH or state == State.DEAD:
+	if state == State.DODGE or state == State.DEAD:
 		return
 	if is_on_floor() or state == State.SPAWNING:
 		if spd < 0.7:

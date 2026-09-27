@@ -129,11 +129,13 @@ func _setup_input_map() -> void:
 		"move_left": [KEY_A, KEY_LEFT],
 		"move_right": [KEY_D, KEY_RIGHT],
 		"jump": [KEY_SPACE],
-		"sprint": [KEY_SHIFT],
-		"dash": [KEY_CTRL, KEY_Q],
+		"sprint": [],
+		"crouch": [KEY_CTRL, KEY_C],
 		"attack": [],
 		"special": [KEY_F],
-		"overdrive": [KEY_E],
+		"overdrive": [KEY_SHIFT, KEY_E],
+		"camera_swap": [KEY_Z],
+		"weapon_prev": [],
 		"reload": [KEY_R],
 		"weapon_1": [KEY_1],
 		"weapon_2": [KEY_2],
@@ -155,9 +157,17 @@ func _setup_input_map() -> void:
 	var rmb := InputEventMouseButton.new()
 	rmb.button_index = MOUSE_BUTTON_RIGHT
 	InputMap.action_add_event("special", rmb)
+	var wheel_up := InputEventMouseButton.new()
+	wheel_up.button_index = MOUSE_BUTTON_WHEEL_UP
+	InputMap.action_add_event("weapon_prev", wheel_up)
+	var wheel_down := InputEventMouseButton.new()
+	wheel_down.button_index = MOUSE_BUTTON_WHEEL_DOWN
+	InputMap.action_add_event("weapon_next", wheel_down)
 	# Gamepad support (nice to have for testing on Android TV / controllers).
 	_add_joy_button("jump", JOY_BUTTON_A)
-	_add_joy_button("dash", JOY_BUTTON_B)
+	_add_joy_button("crouch", JOY_BUTTON_B)
+	_add_joy_button("sprint", JOY_BUTTON_LEFT_STICK)
+	_add_joy_button("camera_swap", JOY_BUTTON_RIGHT_STICK)
 	_add_joy_button("attack", JOY_BUTTON_RIGHT_SHOULDER)
 	_add_joy_button("special", JOY_BUTTON_LEFT_SHOULDER)
 	_add_joy_button("overdrive", JOY_BUTTON_Y)

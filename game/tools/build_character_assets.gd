@@ -12,11 +12,11 @@ const KEEP_UAL1 := [
 	"Idle", "Jog_Fwd", "Sprint", "Walk", "Jump_Start", "Jump", "Jump_Land", "Roll",
 	"Sword_Attack", "Sword_Idle", "Pistol_Idle", "Pistol_Aim_Neutral", "Pistol_Aim_Up",
 	"Pistol_Aim_Down", "Pistol_Shoot", "Pistol_Reload", "Hit_Chest", "Hit_Head", "Death01",
-	"Punch_Jab", "Punch_Cross", "Spell_Simple_Shoot", "Crouch_Idle", "Dance",
+	"Punch_Jab", "Punch_Cross", "Spell_Simple_Shoot", "Crouch_Idle", "Crouch_Fwd", "Dance",
 ]
 const KEEP_UAL2 := [
 	"Sword_Regular_A", "Sword_Regular_B", "Sword_Regular_C", "Sword_Regular_A_Rec",
-	"Sword_Regular_B_Rec", "Sword_Dash", "Sword_Heavy_Combo", "Sword_Block", "Slide_Start",
+	"Sword_Regular_B_Rec", "Sword_Dash", "Sword_Heavy_Combo", "Sword_Block", "Slide_Start", "Slide",
 	"Slide_Exit", "NinjaJump_Start", "NinjaJump_Idle", "NinjaJump_Land", "Hit_Knockback",
 	"LayToIdle", "Shield_Dash", "Melee_Hook", "Melee_Hook_Rec", "OverhandThrow", "ClimbUp_1m",
 	"Idle_FoldArms",

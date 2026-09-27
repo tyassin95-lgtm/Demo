@@ -6,13 +6,12 @@ var player: Player
 var cam: Camera3D
 var frames: Array[Image] = []
 var _move := Vector2.ZERO
-var _sprint := false
+var _crouch := false
 
 
 func drive(p: Player, _dt: float) -> void:
 	p.input_move = _move
-	p.sprinting = _sprint
-	p.jump_held = true
+	p.crouch_held = _crouch
 
 
 func _ready() -> void:
@@ -77,18 +76,55 @@ func _step(n: int, every: int = 4) -> void:
 func _run() -> void:
 	player.cam.yaw = deg_to_rad(-90.0)
 	await _step(10, 100)
-	_move = Vector2(0, 0.5)
-	await _step(16)        # jog start
+	_move = Vector2(0, 0.6)
+	await _step(16)        # jog
 	_move = Vector2(0, 1)
-	_sprint = true
-	await _step(16)        # sprint
+	player.press("sprint")
+	await _step(20)        # sprint (double-tap)
 	player.press("jump")
-	await _step(24)        # sprint jump
-	player.press("dash")
-	await _step(12)        # dash
-	_sprint = false
+	await _step(24)        # sprint hop (air dash)
+	player.sprinting = false
+	_move = Vector2(0, 0.8)
+	await _step(8)
+	player.press("jump")
+	await _step(40)        # somersault jump
+	_move = Vector2(1, 0)
+	await _step(8)         # strafe (body keeps facing the camera)
+	player.press("jump")
+	await _step(30)        # side dodge right: duck and slide + end lag
+	_move = Vector2(-1, 0)
+	player.press("jump")
+	await _step(8)         # side dodge left...
 	_move = Vector2.ZERO
-	await _step(16)        # stop
+	player.press("jump")
+	await _step(12)        # ...jump-canceled
+	_move = Vector2(1, 0)
+	player.press("jump")
+	await _step(28)        # air dodge
+	# Wall jump: run at the wall (face z = -2.5), jump, kick.
+	_move = Vector2.ZERO
+	player.global_position = Vector3(60, 0.1, 3.0)
+	player.velocity = Vector3.ZERO
+	player.cam.yaw = 0.0
+	await _step(8)
+	_move = Vector2(0, 1)
+	await _step(8)
+	player.press("jump")
+	var kicked := false
+	for i in 44:
+		await _step(1, 1 if i % 3 == 0 else 99)
+		if not kicked and player.global_position.z < -1.5:
+			player.press("jump")
+			kicked = true
+	_move = Vector2.ZERO
+	player.cam.yaw = deg_to_rad(-90.0)
+	await _step(12)
+	_crouch = true
+	_move = Vector2(0, 0.7)
+	await _step(20)        # crouch walk
+	_crouch = false
+	_move = Vector2.ZERO
+	await _step(8)
 	for k in 3:
 		player.press("attack")
 		await _step(12)    # combo

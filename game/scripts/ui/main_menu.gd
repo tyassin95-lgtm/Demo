@@ -245,23 +245,24 @@ func _show_info(text: String) -> void:
 
 func _how_to_text() -> String:
 	return """[b][color=#4de6ff]TOUCH CONTROLS[/color][/b]
-[b]Left thumb[/b] – floating stick. Push to the edge to [b]sprint[/b] (uses SP).
+[b]Left thumb[/b] – floating stick; you always face where the camera looks.
 [b]Right side drag[/b] – camera. You can keep aiming while holding [b]ATTACK[/b].
+[b]SPRINT[/b] – or flick the stick forward twice. Keep pushing forward to keep sprinting (5 SP/s).
+[b]JUMP[/b] – somersault jump. With the stick pushed [b]left/right[/b] it's a [b]side dodge[/b] (20 SP).
 [b]ATTACK[/b] – blade combo / fire.  [b]SPECIAL[/b] – heavy slash, grenade, recoil jump or scope.
-[b]JUMP[/b] – jump; press again next to a wall to [b]wall-kick[/b].
-[b]DASH[/b] – quick evade with invulnerability frames; works in mid-air.
-[b]Weapon tabs[/b] (top right) – switch instantly.  [b]Lightning[/b] – OVERDRIVE when charged.
+[b]CROUCH[/b] – toggle; ducks gunfire but you can't attack.  [b]Lightning[/b] – OVERDRIVE.
 
-[b][color=#ff8c33]MOVEMENT TECH[/color][/b]
-• Sprint along a wall while airborne to [b]wall-run[/b]; jump off it to keep speed.
-• Dash then jump to carry dash momentum. Jump pads launch you to high ground.
-• Attack during a sprint or dash for a lunging [b]dash slash[/b]. In the air: slash, then plunge.
-• Cancel attack recovery with dash or jump for fast combos.
-• Scatter Cannon SPECIAL = recoil jump (mobility + close blast).
+[b][color=#ff8c33]MOVEMENT[/color][/b]
+• [b]Wall jump[/b]: during a jump, press JUMP next to a wall (20 SP). You bounce off like a mirror – angle in = angle out; run in diagonally to go farther. Near the top edge of a wall you vault over it instead. No wall jumps after just falling off a ledge.
+• [b]Dodges[/b] have a short end lag: press JUMP (stick centred) to cancel it into a jump, then dodge again in the air – [b]wave dashing[/b] (costs SP fast). Sprinting also cancels the end lag.
+• [b]Sprinting in mid-air[/b] makes you drop faster – chain quick [b]bunny hops[/b]. There's a short delay after each landing; firing a gun just before you land skips it.
+• Weapons set your speed: blade 92 %, rifle & rail 83 %, scatter 79 % (slower while firing/scoped).
+• Knocked flying? Press [b]JUMP[/b] to land on your feet. Knocked down? [b]Dodge[/b] to get up. Staggered? Dodge out for 90 SP.
+• Attack while sprinting for a lunging [b]dash slash[/b]; you can walk while slashing. In the air: slash, then plunge.
 
 [b][color=#4de6ff]PC / GAMEPAD[/color][/b]
-WASD move · Mouse look · LMB attack · RMB special · Space jump · Shift sprint · Ctrl/Q dash
-1-4 weapons · Tab cycle · R reload · E overdrive · Esc pause"""
+WASD move (double-tap W to sprint) · Mouse look · LMB attack · RMB special · Space jump (A/D + Space dodge)
+Ctrl crouch · Shift overdrive · Z camera view · 1-4 / wheel weapons · R reload · Esc pause"""
 
 
 func _credits_text() -> String:

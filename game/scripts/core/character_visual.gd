@@ -53,6 +53,11 @@ var _lean := Vector2.ZERO
 var _lean_target := Vector2.ZERO
 var _gun_kick := 0.0
 var _overdrive := 0.0
+var _spin_axis := Vector3.RIGHT
+var _spin_angle := 0.0
+var _spin_time := 0.0
+var _spin_dur := 0.0
+var _spin_pivot := 0.95
 
 static var _pack_mesh: ArrayMesh
 
@@ -323,6 +328,25 @@ func set_lean(roll: float, pitch: float) -> void:
 	_lean_target = Vector2(roll, pitch)
 
 
+## Procedural whole-body rotation around a pivot at hip height (somersault jumps,
+## wall-jump backflips, cartwheel dodges). `axis` is in this node's space (-Z is
+## forward): RIGHT with -1 turn is a front flip, FORWARD with +1 a cartwheel to the right.
+func spin(axis: Vector3, turns: float, duration: float, pivot: float = 0.95) -> void:
+	_spin_axis = axis.normalized()
+	_spin_angle = TAU * turns
+	_spin_dur = maxf(duration, 0.01)
+	_spin_time = 0.0
+	_spin_pivot = pivot
+
+
+func stop_spin() -> void:
+	_spin_dur = 0.0
+
+
+func is_spinning() -> bool:
+	return _spin_dur > 0.0
+
+
 ## Spawns a translucent snapshot of the current pose (dash afterimage).
 func spawn_afterimage(color: Color, life: float = 0.35) -> void:
 	if mesh == null or not is_inside_tree() or DisplayServer.get_name() == "headless":
@@ -351,7 +375,18 @@ func tick(delta: float) -> void:
 	if _dissolve != _dissolve_target:
 		_dissolve = move_toward(_dissolve, _dissolve_target, delta * _dissolve_speed)
 	_lean = _lean.lerp(_lean_target, clampf(delta * 10.0, 0.0, 1.0))
-	model.rotation = Vector3(_lean.y, PI, _lean.x)
+	var b := Basis.from_euler(Vector3(_lean.y, PI, _lean.x))
+	var origin := Vector3.ZERO
+	if _spin_dur > 0.0:
+		_spin_time += delta * anim.time_scale
+		var k := clampf(_spin_time / _spin_dur, 0.0, 1.0)
+		var r := Basis(_spin_axis, _spin_angle * k * k * (3.0 - 2.0 * k))
+		var pivot := Vector3(0.0, _spin_pivot, 0.0)
+		b = r * b
+		origin = pivot - r * pivot
+		if k >= 1.0:
+			_spin_dur = 0.0
+	model.transform = Transform3D(b, origin)
 	_gun_kick = move_toward(_gun_kick, 0.0, delta * 9.0)
 	if current_gun:
 		var gm := current_gun.get_node("Model") as Node3D

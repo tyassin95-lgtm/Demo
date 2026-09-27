@@ -17,7 +17,8 @@ const BASE_STATES := {
 	"flip_fall": "NinjaJump_Idle",
 	"flip_land": "NinjaJump_Land",
 	"slide": "Slide_Start",
-	"wallrun": "Sprint",
+	"crouch": "Crouch_Idle",
+	"crouch_move": "Crouch_Fwd",
 	"dance": "Dance",
 }
 const RESET_STATES := ["jump", "land", "flip", "flip_land", "slide"]

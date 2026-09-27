@@ -15,42 +15,60 @@ with an original identity, original code and legally usable assets only.
 
 | Area | Details |
 |---|---|
-| Arena | *Stratos Deck* — a floating sky platform at dusk: raised core with ramps, four towers joined by high walkways, wall-run lanes, pillars, cover, 6 jump pads, 5 repair kits, energy barrier, neon city below, broadcast drones |
+| Arena | *Stratos Deck* — a floating sky platform at dusk: raised core with ramps, four towers joined by high walkways, wall-jump walls, pillars, cover, 6 jump pads, 5 repair kits, energy barrier, neon city below, broadcast drones |
 | Player | One fighter (styled mannequin android) with 4 weapons, stamina (SP), overdrive meter |
 | Enemies | **Striker** (fast blade fighter: telegraphed combos, dash slashes, dodges, circling), **Gunner** (keeps range, strafes, telegraphed bursts of dodgeable bolts), **Brute** (big, super-armored, charges and ground slams) |
 | Modes | **Wave Assault** (5 escalating waves, score, combo multiplier, rank) and **Training Ground** (passive, respawning targets) |
 
-### Movement
-- Analog run (7.6 m/s) with snappy acceleration (≈0.12 s to full speed) and quick stops.
-- **Sprint** (11.8 m/s, drains SP) — push the stick to the edge (auto-sprint) or hold Shift.
-- **Jump** with coyote time, input buffering and variable height (tap = short hop).
-- Strong **air control** that keeps momentum; heavier falls for a snappy arc.
-- **Dash / evade** with invulnerability frames; works on the ground and once in the air
-  (air dash hovers). Dash → jump carries the momentum.
-- **Wall kick**: jump next to any wall (chainable between walls, costs a little SP).
-- **Wall run**: sprint along a wall while airborne; jump off it to keep your speed.
+### Movement (S4 League rules)
+Movement follows S4 League's rules (researched from public wikis and player guides; no
+game data was used):
+- **Strafing**: the body always faces where the camera looks; the stick moves you relative
+  to the camera (strafe and backpedal animations with spine twist).
+- **Speed depends on your weapon**: blade 92 %, rifle and rail 83 %, scatter 79 % of the
+  top speed, lower while firing or scoped (rail 67 %, scatter 75 %).
+- **Sprint**: double-tap forward (or tap SPRINT / flick the stick forward twice). It lasts
+  while you keep pushing forward and drains 5 SP/s; at 0 SP you can only run.
+- **Somersault jump** with a fixed height (~1.9 m) and a short delay after each landing
+  (firing a gun just before landing skips it).
+- **Air dash / bunny hop**: sprinting in mid-air drops you faster, so sprint-jumps become
+  quick low hops.
+- **Side dodge**: JUMP while pushing left/right (20 SP): a duck-and-slide on the ground, a
+  sideways aerial in the air. No invulnerability, but flinches can't interrupt it. The end
+  lag can be jump-canceled (JUMP with the stick centred), and an air dodge can be
+  jump-canceled too → **wave dashing** (costs SP fast). Sprinting also cancels the end lag.
+- **Wall jump** (20 SP): only during a jump (not after walking off a ledge), next to a
+  wall. You bounce off like a mirror — angle in = angle out (run in straight for the high
+  180° kick, diagonally to travel along the wall). Kicking near the top of a wall vaults
+  you over it (the "reverse wall jump").
+- **Crouch** (toggle on touch, Ctrl on PC): ducks gunfire; no attacking while crouched.
+- **Recoveries**: knocked flying → JUMP to land on your feet; knocked down → dodge to get
+  up; staggered → dodge out ("faint") for 90 SP.
+- **SP**: 100 max, refills at 22/s after 0.6 s. No wall running and no invulnerable dash.
 - **Jump pads** launch you on exact ballistic arcs to towers and walkways.
 
 ### Combat
 | Weapon | Primary | Special |
 |---|---|---|
-| **Arc Blade** | 3-hit combo (knockdown finisher), sprint/dash → lunging dash slash, air slash → plunge slam | Heavy spin slash (AOE knockdown, costs SP) |
+| **Arc Blade** | 3-hit combo (knockdown finisher), sprint → lunging dash slash, air slash → plunge slam | Heavy spin slash (AOE knockdown, costs SP) |
 | **Pulse Rifle** | Automatic hitscan with tracers | Bouncing pulse grenade |
 | **Scatter Cannon** | 9-pellet blast, staggers up close | **Recoil jump** — launch yourself with a point-blank blast |
 | **Rail Lancer** | Piercing beam (multi-hit) | Scope zoom |
 
 - Soft lock-on for melee, aim assist (bullet magnetism + reticle friction) for guns.
 - Hit reactions: flinch, stagger, knockdown with get-up invulnerability, poise system.
-- Cancel attack recovery with dash or jump; combos, hit-stop, camera shake, haptics.
+- You can walk while slashing; cancel attack recovery with a dodge, jump or sprint;
+  combos, hit-stop, camera shake, haptics.
 - **Overdrive** (charges from damage): 8 s of +20 % speed, +35 % damage, infinite SP,
   activation blast and slow motion.
-- Enemy attacks are telegraphed (glint, sound, **!** marker) so they can be dodged;
+- Enemy attacks are telegraphed (glint, sound, **!** marker) so they can be dodged
+  (enemies side-dodge under the same rules: Strikers cartwheel, the others slide);
   off-screen threat arrows and hit-direction indicators keep you aware.
 
 ### Presentation
 - Layered animation: phase-synced locomotion blending, upper-body aiming layer with
   spine twist for strafing/backpedalling, crossfaded full-body action layer, procedural
-  leaning, dash afterimages.
+  leaning, somersault/cartwheel flips, dodge afterimages.
 - VFX: blade trails, slash arcs, sparks, hit flashes, muzzle flashes, tracers, rail beams,
   explosions, shockwaves, spawn beams, damage numbers, speed lines, dissolve-in/out.
 - Procedural sky (ringed planet, stars, clouds), glow, ACES tonemapping, fog, dynamic
@@ -60,19 +78,24 @@ with an original identity, original code and legally usable assets only.
 ## Controls
 
 **Touch (default on phones)**
-- Left thumb: floating stick (push to the edge to sprint).
+- Left thumb: floating stick (flick it forward twice to sprint).
 - Right side: drag to look. Hold **ATTACK** and drag to aim while firing.
-- Buttons: ATTACK, SPECIAL, JUMP, DASH, RELOAD (guns), OVERDRIVE (lightning, when charged).
+- Buttons: ATTACK, SPECIAL, JUMP (becomes a side dodge while the stick points left/right —
+  the icon switches to an arrow), SPRINT, CROUCH (toggle), RELOAD (guns), OVERDRIVE
+  (lightning, when charged).
 - Weapon tabs (top right) switch instantly; pause button top-right.
 - Android back button pauses.
 
 **Keyboard / mouse / gamepad (for testing on PC)**
-WASD move · mouse look · LMB attack · RMB special · Space jump · Shift sprint ·
-Ctrl/Q dash · 1–4 weapons · Tab cycle · R reload · E overdrive · Esc pause.
+WASD move · double-tap W sprint · mouse look · LMB attack · RMB special · Space jump ·
+A/D + Space dodge · Ctrl crouch · Shift overdrive · Z camera view (centre/right/left) ·
+1–4 or mouse wheel weapons · R reload · Esc pause. Gamepad: A jump/dodge, B crouch,
+L3 sprint, R3 camera view.
 
 **Settings:** look sensitivity, scoped sensitivity, mouse sensitivity, invert Y, aim assist,
-camera auto-follow, auto-sprint, button size/opacity, left-handed layout, vibration,
-graphics quality (Low/Medium/High), frame-rate cap (30/60/90/120), FPS counter, volumes.
+camera view (centre/right/left shoulder), optional sprint-by-pushing-the-stick,
+button size/opacity, left-handed layout, vibration, graphics quality (Low/Medium/High),
+frame-rate cap (30/60/90/120), FPS counter, volumes.
 
 ## Building the APK
 
@@ -94,7 +117,7 @@ To open the project in the editor, open `game/project.godot`.
 
 ```bash
 cd game
-# Movement/combat metrics (acceleration, jump height, dash distance, wall jump/run, combos...)
+# S4 movement rules (sprint, jump, dodges, wave dash, mirror/reverse wall jumps, recoveries...)
 godot --headless --path . --fixed-fps 60 res://tests/movement_test.tscn
 # Synthetic multi-touch test of the on-screen controls
 godot --headless --path . --fixed-fps 60 res://scenes/arena.tscn -- --touch-test --touch

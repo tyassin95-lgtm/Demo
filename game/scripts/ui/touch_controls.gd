@@ -1,8 +1,10 @@
 class_name TouchControls
 extends Control
-## Mobile touch controls: floating move stick (left), camera drag (right), action
-## buttons (hold ATTACK and drag to aim at the same time), weapon slots, overdrive.
-## Everything is drawn procedurally. Supports scale/opacity/left-handed settings.
+## Mobile touch controls: floating move stick (left; flick it forward twice to sprint),
+## camera drag (right), action buttons (hold ATTACK and drag to aim at the same time;
+## JUMP becomes a side dodge while the stick points left/right), sprint, crouch toggle,
+## weapon slots, overdrive. Everything is drawn procedurally. Supports scale/opacity/
+## left-handed settings.
 
 signal pause_requested
 
@@ -13,17 +15,19 @@ const DEFAULT_STICK := Vector2(190, -190)
 var button_defs := [
 	["attack", Vector2(-148, -150), 80.0, true],
 	["jump", Vector2(-318, -92), 58.0, false],
-	["dash", Vector2(-300, -250), 54.0, false],
+	["sprint", Vector2(-300, -250), 54.0, false],
 	["special", Vector2(-152, -326), 52.0, true],
 	["overdrive", Vector2(-420, -330), 44.0, false],
 	["reload", Vector2(-445, -95), 34.0, false],
+	["crouch", Vector2(-440, -212), 34.0, false],
 ]
 
 var player: Player
 var camera: PlayerCamera
 var move_vector := Vector2.ZERO
 var stick_active := false
-var sprint_active := false
+## Crouch is a toggle on touch screens.
+var crouch_on := false
 
 var _stick_touch := -1
 var _stick_origin := Vector2.ZERO
@@ -62,6 +66,7 @@ func reset() -> void:
 	move_vector = Vector2.ZERO
 	_look_touches.clear()
 	_button_touches.clear()
+	crouch_on = false
 	for k in _held:
 		_held[k] = false
 	queue_redraw()
@@ -93,6 +98,8 @@ func _press(name: String) -> void:
 	_flash[name] = 1.0
 	if name == "pause":
 		pause_requested.emit()
+	elif name == "crouch":
+		crouch_on = not crouch_on
 
 
 # --- Layout ------------------------------------------------------------------------
@@ -297,9 +304,13 @@ func _draw() -> void:
 		draw_arc(c, br, 0, TAU, 48, ring_col if not held else Color(accent.r, accent.g, accent.b, alpha), 3.0, true)
 		if name == "attack":
 			draw_arc(c, br - 7.0, 0, TAU, 48, Color(accent.r, accent.g, accent.b, 0.55 * alpha), 2.0, true)
-		if name == "dash" and player and is_instance_valid(player):
+		if name == "sprint" and player and is_instance_valid(player):
 			var st := player.stamina / Player.STAMINA_MAX
 			draw_arc(c, br + 5.0, -PI / 2.0, -PI / 2.0 + TAU * st, 40, Color(0.4, 1.0, 0.6, 0.7 * alpha), 3.0, true)
+			if player.sprinting:
+				draw_circle(c, br, Color(accent.r, accent.g, accent.b, 0.35 * alpha))
+		if name == "crouch" and crouch_on:
+			draw_circle(c, br, Color(accent.r, accent.g, accent.b, 0.45 * alpha))
 		_draw_icon(name, c, br, Color(1, 1, 1, 0.92 * alpha), w)
 	# Weapon slots.
 	if player and is_instance_valid(player):
@@ -342,13 +353,29 @@ func _draw_icon(name: String, c: Vector2, r: float, col: Color, w: WeaponDB.Weap
 					draw_line(c + dir * s * 0.45, c + dir * s * 1.2, col, 3.0, true)
 				draw_circle(c, 3.0, col)
 		"jump":
-			var pts := PackedVector2Array([c + Vector2(-s, s * 0.45), c + Vector2(0, -s * 0.55), c + Vector2(s, s * 0.45)])
-			draw_polyline(pts, col, 5.0, true)
-			draw_line(c + Vector2(-s * 0.6, s * 0.95), c + Vector2(s * 0.6, s * 0.95), col, 3.0, true)
-		"dash":
+			var side := 0.0
+			if absf(move_vector.x) >= Player.DODGE_INPUT:
+				side = signf(move_vector.x)
+			if side != 0.0:
+				# Stick held sideways: this press is a side dodge.
+				var tip := c + Vector2(side * s * 1.05, 0)
+				draw_line(c + Vector2(-side * s * 0.9, 0), tip, col, 5.0, true)
+				draw_polyline(PackedVector2Array([tip + Vector2(-side * s * 0.5, -s * 0.5), tip, tip + Vector2(-side * s * 0.5, s * 0.5)]), col, 5.0, true)
+				draw_line(c + Vector2(-s * 0.7, s * 0.85), c + Vector2(s * 0.7, s * 0.85), col, 3.0, true)
+			else:
+				var pts := PackedVector2Array([c + Vector2(-s, s * 0.45), c + Vector2(0, -s * 0.55), c + Vector2(s, s * 0.45)])
+				draw_polyline(pts, col, 5.0, true)
+				draw_line(c + Vector2(-s * 0.6, s * 0.95), c + Vector2(s * 0.6, s * 0.95), col, 3.0, true)
+				# Small side ticks hint that JUMP + left/right dodges.
+				draw_line(c + Vector2(-s * 1.35, -s * 0.05), c + Vector2(-s * 1.1, -s * 0.05), col, 2.5, true)
+				draw_line(c + Vector2(s * 1.1, -s * 0.05), c + Vector2(s * 1.35, -s * 0.05), col, 2.5, true)
+		"sprint":
 			for k in 2:
-				var o := Vector2(-s * 0.55 + k * s * 0.75, 0)
-				draw_polyline(PackedVector2Array([c + o + Vector2(-s * 0.35, -s * 0.7), c + o + Vector2(s * 0.35, 0), c + o + Vector2(-s * 0.35, s * 0.7)]), col, 4.5, true)
+				var o := Vector2(0, s * 0.55 - k * s * 0.75)
+				draw_polyline(PackedVector2Array([c + o + Vector2(-s * 0.7, s * 0.35), c + o + Vector2(0, -s * 0.35), c + o + Vector2(s * 0.7, s * 0.35)]), col, 4.5, true)
+		"crouch":
+			draw_polyline(PackedVector2Array([c + Vector2(-s * 0.7, -s * 0.35), c + Vector2(0, s * 0.35), c + Vector2(s * 0.7, -s * 0.35)]), col, 4.0, true)
+			draw_line(c + Vector2(-s * 0.8, s * 0.8), c + Vector2(s * 0.8, s * 0.8), col, 3.0, true)
 		"special":
 			var kind := w.secondary if w else WeaponDB.Secondary.HEAVY
 			match kind:

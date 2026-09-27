@@ -1,7 +1,7 @@
 extends Node
 ## Automation driver for testing and screenshots: plays the player character by
-## chasing enemies, using every weapon, jumping, dashing and wall-kicking, and
-## logs match statistics once per second.
+## chasing enemies, using every weapon, sprinting, jumping, side-dodging and
+## wall-jumping, and logs match statistics once per second.
 
 var target: Actor = null
 var _t := 0.0
@@ -9,10 +9,11 @@ var _log_t := 0.0
 var _weapon_t := 0.0
 var _jump_t := 1.5
 var _dash_t := 2.5
+var _dodge_side := 0.0
 var _special_t := 4.0
 var _strafe := 1.0
 var weapon_cycle := false
-var stats := {"jumps": 0, "dashes": 0, "attacks": 0, "wall_jumps": 0, "specials": 0}
+var stats := {"jumps": 0, "dodges": 0, "attacks": 0, "wall_jumps": 0, "specials": 0}
 
 
 var _hooked := false
@@ -47,14 +48,10 @@ func drive(p: Player, dt: float) -> void:
 				if is_instance_valid(e):
 					e.remove_meta("bot_seen"))
 			if randf() < 0.6 and p.stamina > 25.0:
-				var away := (p.global_position - e.global_position).normalized()
 				_strafe = -_strafe
-				p.input_move = Vector2(_strafe, -0.3)
-				p.press("dash")
-				stats["dashes"] += 1
+				_dodge_side = _strafe
 	p.attack_held = false
 	p.jump_held = true
-	p.sprinting = false
 	if target == null:
 		p.input_move = Vector2(sin(_t * 0.7), 0.6)
 		return
@@ -80,7 +77,7 @@ func drive(p: Player, dt: float) -> void:
 	var fwd := clampf((dist - ideal) * 0.4, -1.0, 1.0)
 	if _t > 3.0 and int(_t / 3.0) % 2 == 0:
 		_strafe = -_strafe if randf() < 0.02 else _strafe
-	var mv := Vector2(0.55 * _strafe if not melee or dist > 4.0 else 0.0, fwd)
+	var mv := Vector2(0.4 * _strafe if not melee or dist > 4.0 else 0.0, fwd)
 	# Avoid getting pinned against the perimeter walls / corners.
 	var pos := p.global_position
 	if absf(pos.x) > 20.0 or absf(pos.z) > 20.0:
@@ -90,7 +87,14 @@ func drive(p: Player, dt: float) -> void:
 		var fw := Vector3(-sin(yaw), 0.0, -cos(yaw))
 		mv += Vector2(to_center.dot(right), to_center.dot(fw)) * 0.8
 	p.input_move = mv.limit_length(1.0)
-	p.sprinting = dist > 8.0 and p.stamina > 30.0
+	if dist > 8.0 and p.stamina > 30.0 and not p.sprinting and p.input_move.y > 0.5:
+		p.press("sprint")
+	if _dodge_t_ready(p):
+		# Side dodge = JUMP while the stick points left/right.
+		p.input_move = Vector2(_dodge_side, 0.0)
+		p.press("jump")
+		stats["dodges"] += 1
+		_dodge_side = 0.0
 	if melee:
 		if dist < 3.2:
 			p.press("attack")
@@ -108,8 +112,7 @@ func drive(p: Player, dt: float) -> void:
 		stats["jumps"] += 1
 	if _dash_t <= 0.0 and p.stamina > 40.0:
 		_dash_t = randf_range(1.5, 3.5)
-		p.press("dash")
-		stats["dashes"] += 1
+		_dodge_side = 1.0 if randf() < 0.5 else -1.0
 	if _special_t <= 0.0:
 		_special_t = randf_range(3.0, 6.0)
 		if p.weapons.current().secondary != WeaponDB.Secondary.SCOPE:
@@ -123,6 +126,10 @@ func drive(p: Player, dt: float) -> void:
 	if _log_t >= 1.0:
 		_log_t = 0.0
 		_log(p)
+
+
+func _dodge_t_ready(p: Player) -> bool:
+	return _dodge_side != 0.0 and p.state == Actor.State.NORMAL and p.stamina >= Player.DODGE_COST
 
 
 func _nearest(p: Player) -> Actor:

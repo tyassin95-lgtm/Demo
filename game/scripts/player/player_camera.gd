@@ -1,20 +1,22 @@
 class_name PlayerCamera
 extends Node3D
-## Third-person orbit camera: touch/mouse look with sensitivity settings, shoulder
-## offset, collision, speed-based FOV, FOV kicks, trauma shake, aim point, aim assist
-## (bullet magnetism + reticle friction) and gentle auto-follow for touch play.
+## Third-person orbit camera: touch/mouse look with sensitivity settings, centred or
+## over-the-shoulder view (swappable), collision, speed-based FOV, FOV kicks, trauma
+## shake, aim point and aim assist (bullet magnetism + reticle friction).
 
 const PITCH_MIN := deg_to_rad(-62.0)
 const PITCH_MAX := deg_to_rad(55.0)
 const TOUCH_SCALE := 0.0042
 const MOUSE_SCALE := 0.0024
+## Horizontal camera offset per view: centred (character slightly left of the
+## crosshair), right shoulder, left shoulder.
+const SIDE_OFFSETS := [0.28, 0.62, -0.62]
 
 var target: Player
 var camera: Camera3D
 var yaw := 0.0
 var pitch := deg_to_rad(-12.0)
 var distance := 3.7
-var shoulder := 0.58
 var height := 1.6
 var base_fov := 72.0
 var hitmarker_time := 0.0
@@ -26,8 +28,8 @@ var _trauma := 0.0
 var _shake_t := 0.0
 var _pivot := Vector3.ZERO
 var _cur_dist := 3.7
-var _idle_look := 0.0
 var _assist_angle := 99.0
+var _side := 0.28
 var _sphere := SphereShape3D.new()
 var _noise := FastNoiseLite.new()
 
@@ -43,6 +45,7 @@ func _ready() -> void:
 	_sphere.radius = 0.22
 	_noise.frequency = 3.0
 	_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	_side = _side_offset()
 	Game.camera = self
 	if target:
 		_pivot = target.global_position + Vector3.UP * height
@@ -63,6 +66,16 @@ func add_touch_look(delta_px: Vector2) -> void:
 
 func snap_behind(facing_yaw: float) -> void:
 	yaw = facing_yaw
+
+
+func _side_offset() -> float:
+	return SIDE_OFFSETS[clampi(int(Settings.get_value("camera_side")), 0, 2)]
+
+
+## Cycles centre -> right shoulder -> left shoulder (Z key).
+func swap_shoulder() -> void:
+	Settings.set_value("camera_side", (int(Settings.get_value("camera_side")) + 1) % 3)
+	Audio.play("ui_toggle", -8.0)
 
 
 func add_trauma(amount: float) -> void:
@@ -140,10 +153,7 @@ func _physics_process(delta: float) -> void:
 	var inv := -1.0 if Settings.get_value("invert_y") else 1.0
 	yaw -= _look.x * sens
 	pitch = clampf(pitch - _look.y * sens * inv, PITCH_MIN, PITCH_MAX)
-	var looking := _look.length() > 0.0001
 	_look = Vector2.ZERO
-	_idle_look = 0.0 if looking else _idle_look + delta
-	_auto_follow(delta)
 	_assist_magnetism(delta)
 
 	# Pivot follows tightly horizontally, softer vertically (smooths jumps/landings).
@@ -153,7 +163,8 @@ func _physics_process(delta: float) -> void:
 	_pivot.y = lerpf(_pivot.y, p.y, clampf(delta * (14.0 if absf(p.y - _pivot.y) < 2.5 else 30.0), 0.0, 1.0))
 	var rot := Basis.from_euler(Vector3(pitch, yaw, 0.0))
 	var want_dist := (1.9 if scoped else distance) * (1.0 + clampf(-pitch * 0.25, -0.1, 0.25))
-	var off := rot * Vector3(shoulder * (0.7 if scoped else 1.0), 0.0, 0.0)
+	_side = lerpf(_side, _side_offset(), clampf(delta * 8.0, 0.0, 1.0))
+	var off := rot * Vector3(_side * (0.7 if scoped else 1.0), 0.0, 0.0)
 	var from := _pivot + off
 	var dir := rot * Vector3(0, 0.08, 1.0)
 	# Camera collision (sphere cast from the pivot).
@@ -194,24 +205,6 @@ func _physics_process(delta: float) -> void:
 	camera.fov = lerpf(camera.fov, fov_target, clampf(delta * 9.0, 0.0, 1.0))
 	_fov_kick = move_toward(_fov_kick, 0.0, delta * 28.0)
 	hitmarker_time = maxf(hitmarker_time - delta, 0.0)
-
-
-## Slowly swings the camera behind the running direction when the player isn't
-## steering the camera (helps melee play on touchscreens).
-func _auto_follow(delta: float) -> void:
-	var strength := float(Settings.get_value("camera_follow"))
-	if strength <= 0.0 or _idle_look < 0.7 or target.is_strafing():
-		return
-	if target.state != Actor.State.NORMAL or target.wallrun_timer > 0.0:
-		return
-	var hv := Vector3(target.velocity.x, 0, target.velocity.z)
-	if hv.length() < 4.0 or target.input_move.y < -0.3:
-		return
-	var desired := Actor.yaw_from_dir(hv.normalized())
-	var diff := wrapf(desired - yaw, -PI, PI)
-	if absf(diff) > deg_to_rad(120.0):
-		return
-	yaw += diff * clampf(delta * 2.2 * strength, 0.0, 1.0)
 
 
 ## Gently pulls the camera toward the assisted target while firing.

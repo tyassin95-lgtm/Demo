@@ -6,7 +6,7 @@ extends CharacterBody3D
 signal damaged(actor: Actor, hit: HitInfo)
 signal died(actor: Actor, hit: HitInfo)
 
-enum State { NORMAL, ATTACK, DASH, FLINCH, STAGGER, KNOCKDOWN, DOWN, GETUP, DEAD, SPAWNING }
+enum State { NORMAL, ATTACK, DODGE, FLINCH, STAGGER, KNOCKDOWN, DOWN, GETUP, DEAD, SPAWNING }
 
 const FLINCH_TIME := 0.32
 const STAGGER_TIME := 0.6
@@ -38,6 +38,7 @@ var last_hit_time := -100.0
 var time_scale := 1.0
 var visual: CharacterVisual
 var weapons: WeaponController
+var body_shape: CollisionShape3D
 var style := {}
 var was_on_floor := true
 var air_time := 0.0
@@ -61,13 +62,13 @@ func _ready() -> void:
 	floor_block_on_wall = true
 	wall_min_slide_angle = deg_to_rad(10.0)
 	max_slides = 5
-	var shape := CollisionShape3D.new()
+	body_shape = CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
 	cap.radius = 0.38 * visual_scale
 	cap.height = 1.8 * visual_scale
-	shape.shape = cap
-	shape.position = Vector3(0, 0.9 * visual_scale, 0)
-	add_child(shape)
+	body_shape.shape = cap
+	body_shape.position = Vector3(0, 0.9 * visual_scale, 0)
+	add_child(body_shape)
 	visual = CharacterVisual.new()
 	visual.name = "Visual"
 	add_child(visual)
@@ -236,6 +237,9 @@ func take_hit(hit: HitInfo) -> bool:
 	if super_armor and reaction <= HitInfo.Reaction.STAGGER:
 		reaction = HitInfo.Reaction.NONE
 	if _flinch_immunity > 0.0 and reaction <= HitInfo.Reaction.STAGGER:
+		reaction = HitInfo.Reaction.NONE
+	# Flinches never interrupt a dodge (damage still applies).
+	if state == State.DODGE and reaction == HitInfo.Reaction.FLINCH:
 		reaction = HitInfo.Reaction.NONE
 	if hit.hitstop > 0.0:
 		hitstop = maxf(hitstop, hit.hitstop)

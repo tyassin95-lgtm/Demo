@@ -1,59 +1,84 @@
 class_name Player
 extends Actor
-## Player character: responsive high-speed movement (sprint, jump, air control, dash,
-## air dash, wall jump, wall run), weapons, stamina, overdrive and combo tracking.
+## Player character. Movement follows S4 League's rules: the body always faces the
+## camera (strafing), double-tap forward to sprint (sprinting in mid-air falls faster:
+## bunny hops), JUMP + left/right is a side dodge (jump-cancelable into wave dashes),
+## wall jumps only from a jump and reflect off the wall (angle in = angle out; near the
+## top of a wall they carry you over it), a short delay between jumps, crouch, speed set
+## by the equipped weapon, and dodge/jump recoveries from hits. SP (stamina) pays for
+## dodges and wall jumps. Plus weapons, overdrive and combo tracking.
 
 signal overdrive_changed(active: bool)
 signal combo_changed(count: int)
 
-# --- Movement tuning ------------------------------------------------------------
-const RUN_SPEED := 7.6
-const SPRINT_SPEED := 11.8
-const GROUND_ACCEL := 70.0
-const GROUND_DECEL := 52.0
-const REVERSE_BONUS := 1.7
-const AIR_ACCEL := 24.0
-const AIR_DRAG := 1.2
-const JUMP_VELOCITY := 10.8
-const JUMP_CUT_GRAVITY := 2.1
-const COYOTE_TIME := 0.11
-const BUFFER_TIME := 0.14
-const DASH_SPEED := 25.0
-const DASH_TIME := 0.19
-const DASH_EXIT_SPEED := 12.5
-const DASH_COST := 20.0
-const AIR_DASH_COST := 16.0
-const DASH_COOLDOWN := 0.1
-const DASH_IFRAMES := 0.2
-const WALL_JUMP_UP := 11.0
-const WALL_JUMP_OUT := 8.8
-const WALL_JUMP_COST := 7.0
-const WALL_PROBE := 0.75
-const WALLRUN_TIME := 0.9
-const WALLRUN_MIN_SPEED := 7.0
-const WALLRUN_GRAVITY := 0.2
-const WALLRUN_COST := 10.0
+# --- Movement tuning (speeds at 100 % weapon mobility) -------------------------
+const RUN_SPEED := 8.2
+const SPRINT_SPEED := 13.0
+const CROUCH_SPEED := 2.6
+const GROUND_ACCEL := 95.0
+const GROUND_DECEL := 80.0
+const AIR_ACCEL := 10.0
+const AIR_SPRINT_ACCEL := 20.0
+const AIR_DRAG := 1.0
+## Share of the run speed you can walk at while swinging a melee weapon.
+const ATTACK_WALK := 0.45
+const JUMP_VELOCITY := 10.4
+## Sprinting in mid-air ("air dash"): gravity multipliers going up / coming down.
+const AIR_DASH_RISE := 1.3
+const AIR_DASH_FALL := 2.0
+## Delay between landing and the next jump or dodge.
+const LANDING_LAG := 0.14
+const COYOTE_TIME := 0.06
+const BUFFER_TIME := 0.22
+const DOUBLE_TAP_TIME := 0.3
+## How far sideways the stick/keys must point for JUMP to become a dodge.
+const DODGE_INPUT := 0.5
+const DODGE_COST := 20.0
+const DODGE_SPEED := 15.5
+const DODGE_END_SPEED := 5.0
+const DODGE_TIME := 0.28
+const DODGE_RECOVERY := 0.22
+const DODGE_JUMP_CANCEL := 0.1
+const AIR_DODGE_LIFT := 3.8
+const WALL_JUMP_COST := 20.0
+const WALL_JUMP_UP := 11.6
+const WALL_JUMP_MIN_OUT := 5.5
+const WALL_JUMP_MAX_OUT := 13.0
+const WALL_PLANT_TIME := 0.07
+const WALL_PROBE := 0.85
+## After a wall kick the reflected arc can't be steered for a moment.
+const WALL_JUMP_LOCK := 0.3
+## Knocked-flying players can recover (JUMP, or a dodge) after this long; the throw's
+## path then stays fixed for a moment.
+const THROW_RECOVER_TIME := 0.2
+const THROW_PATH_LOCK := 0.3
+## Dodging out of a stagger ("faint") costs almost the whole gauge.
+const FAINT_COST := 90.0
 const STAMINA_MAX := 100.0
-const STAMINA_REGEN := 34.0
-const STAMINA_DELAY := 0.55
-const SPRINT_DRAIN := 11.0
+const STAMINA_REGEN := 22.0
+const STAMINA_DELAY := 0.6
+const SPRINT_DRAIN := 5.0
+const SPRINT_MIN := 5.0
 const OVERDRIVE_TIME := 8.0
 const COMBO_TIMEOUT := 2.6
 
 var stamina := STAMINA_MAX
 var stamina_delay := 0.0
 var sprinting := false
+## True while SP is too low for a dodge or wall jump.
 var exhausted := false
+var crouching := false
+## Set by jumps (ground, wall, jump-cancel): wall jumps are only possible during one.
+var jump_state := false
+var air_dodge_ready := true
 var coyote := 0.0
-var air_dashes := 1
-var dash_timer := 0.0
-var dash_dir := Vector3.FORWARD
-var dash_cd := 0.0
-var dash_in_air := false
-var wallrun_timer := 0.0
-var wallrun_normal := Vector3.ZERO
-var wallrun_cd := 0.0
-var jumped := false
+var land_lag := 0.0
+var dodge_time := 0.0
+var dodge_dir := Vector3.RIGHT
+var dodge_side := 1.0
+var dodge_in_air := false
+## > 0 while the feet are planted on a wall, right before the kick.
+var wall_plant := 0.0
 var air_attacks := 0
 var afterimage_timer := 0.0
 var combo := 0
@@ -73,10 +98,18 @@ var bot: Node = null
 var input_move := Vector2.ZERO
 var jump_held := false
 var attack_held := false
-var sprint_toggle := false
-var _buffer := {"jump": 0.0, "dash": 0.0, "attack": 0.0, "special": 0.0}
+var crouch_held := false
+var _buffer := {"jump": 0.0, "attack": 0.0, "special": 0.0, "sprint": 0.0}
+var _fwd_down := false
+var _fwd_tap := -10.0
+var _sprint_armed := 0.0
+var _wall_out := Vector3.ZERO
+var _wall_reverse := false
 var _last_wall_normal := Vector3.ZERO
 var _last_wall_time := -10.0
+var _last_shot_time := -10.0
+var _air_lock := 0.0
+var _dodge_recovering := false
 var _step_timer := 0.0
 ## Set by jump pads: no air drag until landing so ballistic arcs stay exact.
 var _pad_flight := false
@@ -101,6 +134,7 @@ func _ready() -> void:
 	super._ready()
 	weapons.setup(["arc_blade", "pulse_rifle", "scatter_cannon", "rail_lancer"])
 	weapons.hit_landed.connect(_on_hit_landed)
+	weapons.fired.connect(func(_id: String) -> void: _last_shot_time = _clock)
 	Game.player = self
 	cam = PlayerCamera.new()
 	cam.name = "PlayerCamera"
@@ -119,6 +153,11 @@ func aim_dir_flat() -> Vector3:
 	return f.normalized() if f.length() > 0.01 else forward()
 
 
+func _cam_right() -> Vector3:
+	var yaw := cam.yaw if cam else facing
+	return Vector3(cos(yaw), 0.0, -sin(yaw))
+
+
 func _wish_dir() -> Vector3:
 	if cam == null:
 		return Vector3.ZERO
@@ -129,43 +168,67 @@ func _wish_dir() -> Vector3:
 	return v.limit_length(1.0)
 
 
+## -1 / +1 when left / right is held firmly enough for JUMP to dodge, else 0.
+func _lateral_input() -> float:
+	return signf(input_move.x) if absf(input_move.x) >= DODGE_INPUT else 0.0
+
+
+## The body always faces where the camera looks (S4-style third-person shooter).
 func is_strafing() -> bool:
-	return not weapons.is_melee() or weapons.scoped
+	return true
+
+
+## Movement speed factor of the equipped weapon (lower while firing or scoped).
+func mobility() -> float:
+	var w := weapons.current()
+	var m := w.move_speed_mult if w else 1.0
+	if w and (weapons.scoped or (w.kind != WeaponDB.Kind.MELEE and attack_held)):
+		m = w.move_speed_firing
+	return m * (1.2 if overdrive_time > 0.0 else 1.0)
 
 
 func can_act() -> bool:
-	return state == State.NORMAL or state == State.DASH or (state == State.ATTACK and weapons.can_cancel())
+	return state == State.NORMAL or (state == State.ATTACK and weapons.can_cancel())
+
+
+func chest_position() -> Vector3:
+	return global_position + Vector3(0, 0.8 if crouching else 1.25, 0)
+
+
+func _turn_speed() -> float:
+	return 40.0
 
 
 # --- Input ------------------------------------------------------------------------
 
 func _gather_input(dt: float) -> void:
-	if bot and is_instance_valid(bot):
-		for k in _buffer:
-			_buffer[k] = maxf(_buffer[k] - dt, 0.0)
-		bot.call("drive", self, dt)
-		return
-	var mv := Vector2(Input.get_axis("move_left", "move_right"), Input.get_axis("move_back", "move_forward"))
-	var touch_sprint := false
-	if controls and is_instance_valid(controls):
-		mv += controls.move_vector
-		touch_sprint = controls.sprint_active
-	input_move = mv.limit_length(1.0)
 	for k in _buffer:
 		_buffer[k] = maxf(_buffer[k] - dt, 0.0)
+	if bot and is_instance_valid(bot):
+		bot.call("drive", self, dt)
+		_track_double_tap()
+		return
+	var mv := Vector2(Input.get_axis("move_left", "move_right"), Input.get_axis("move_back", "move_forward"))
+	if controls and is_instance_valid(controls):
+		mv += controls.move_vector
+	input_move = mv.limit_length(1.0)
+	_track_double_tap()
 	if Input.is_action_just_pressed("jump") or (controls and controls.consume("jump")):
 		_buffer["jump"] = BUFFER_TIME
-	if Input.is_action_just_pressed("dash") or (controls and controls.consume("dash")):
-		_buffer["dash"] = BUFFER_TIME
+	if Input.is_action_just_pressed("sprint") or (controls and controls.consume("sprint")):
+		_buffer["sprint"] = BUFFER_TIME
 	if Input.is_action_just_pressed("attack") or (controls and controls.consume("attack")):
 		_buffer["attack"] = BUFFER_TIME
 	if Input.is_action_just_pressed("special") or (controls and controls.consume("special")):
 		_buffer["special"] = BUFFER_TIME
 	jump_held = Input.is_action_pressed("jump") or (controls != null and controls.is_held("jump"))
 	attack_held = Input.is_action_pressed("attack") or (controls != null and controls.is_held("attack"))
-	var sprint_key := Input.is_action_pressed("sprint")
-	var auto: bool = bool(Settings.get_value("auto_sprint")) and input_move.length() > 0.92 and controls != null and controls.stick_active
-	sprinting = (sprint_key or touch_sprint or auto) and input_move.length() > 0.4 and not exhausted and not weapons.scoped
+	crouch_held = Input.is_action_pressed("crouch") or (controls != null and controls.crouch_on)
+	# Optional assist: pushing the stick all the way forward also starts a sprint.
+	if bool(Settings.get_value("auto_sprint")) and controls != null and controls.stick_active and input_move.y > 0.92 and not sprinting:
+		_buffer["sprint"] = BUFFER_TIME
+	if Input.is_action_just_pressed("camera_swap") and cam:
+		cam.swap_shoulder()
 	if Input.is_action_just_pressed("reload") or (controls and controls.consume("reload")):
 		weapons.start_reload()
 	for i in 4:
@@ -173,11 +236,27 @@ func _gather_input(dt: float) -> void:
 			weapons.switch_to(i)
 	if Input.is_action_just_pressed("weapon_next") or (controls and controls.consume("weapon_next")):
 		weapons.cycle(1)
+	if Input.is_action_just_pressed("weapon_prev"):
+		weapons.cycle(-1)
 	if Input.is_action_just_pressed("overdrive") or (controls and controls.consume("overdrive")):
 		activate_overdrive()
 
 
-## Used by automation to press a buffered action.
+## Double-tapping forward (keys or a double flick of the stick) requests a sprint.
+func _track_double_tap() -> void:
+	if input_move.y > 0.6:
+		if not _fwd_down:
+			_fwd_down = true
+			if _clock - _fwd_tap < DOUBLE_TAP_TIME:
+				_buffer["sprint"] = BUFFER_TIME
+				_fwd_tap = -10.0
+			else:
+				_fwd_tap = _clock
+	elif input_move.y < 0.3:
+		_fwd_down = false
+
+
+## Used by automation to press a buffered action ("jump", "attack", "special", "sprint").
 func press(k: String) -> void:
 	_buffer[k] = BUFFER_TIME
 
@@ -193,9 +272,11 @@ func _consume(k: String) -> bool:
 
 func _actor_update(dt: float) -> void:
 	_gather_input(dt)
+	_update_sprint(dt)
 	_update_stamina(dt)
 	_update_timers(dt)
 	_update_aim()
+	_try_recovery()
 	if _update_reaction_states(dt):
 		visual_yaw_offset = 0.0
 		visual.twist.yaw = 0.0
@@ -204,8 +285,8 @@ func _actor_update(dt: float) -> void:
 	match state:
 		State.NORMAL:
 			_update_normal(dt)
-		State.DASH:
-			_update_dash(dt)
+		State.DODGE:
+			_update_dodge(dt)
 		State.ATTACK:
 			_update_attack(dt)
 	weapons.update(dt)
@@ -216,8 +297,8 @@ func _update_timers(dt: float) -> void:
 	# Gentle regeneration after a few seconds without taking damage.
 	if is_alive() and _clock - last_hit_time > 4.5 and health < max_health:
 		health = minf(health + 5.0 * dt, max_health)
-	dash_cd -= dt
-	wallrun_cd -= dt
+	land_lag -= dt
+	_air_lock -= dt
 	_land_anim_cd -= dt
 	if combo > 0:
 		combo_timer -= dt
@@ -231,30 +312,50 @@ func _update_timers(dt: float) -> void:
 			_end_overdrive()
 
 
+func _update_sprint(dt: float) -> void:
+	if _buffer["sprint"] > 0.0:
+		_buffer["sprint"] = 0.0
+		_sprint_armed = 0.5
+	_sprint_armed -= dt
+	var forwardish := input_move.y > 0.35
+	var grounded := is_on_floor()
+	if not sprinting and _sprint_armed > 0.0 and forwardish and state == State.NORMAL and not crouching and not weapons.scoped:
+		# On the ground a sprint needs SP; in the air it still makes you fall faster.
+		if not grounded or stamina >= SPRINT_MIN:
+			sprinting = true
+			_sprint_armed = 0.0
+			if grounded:
+				Audio.play("dash", -12.0, 1.25)
+				if cam:
+					cam.kick_fov(3.0)
+	if sprinting:
+		var stop := not forwardish or crouching or weapons.scoped or state != State.NORMAL
+		if grounded and stamina <= 0.0:
+			stop = true
+		if stop:
+			sprinting = false
+
+
 func _update_stamina(dt: float) -> void:
-	if sprinting and state == State.NORMAL and is_on_floor() and Vector3(velocity.x, 0, velocity.z).length() > 3.0:
+	var hv := Vector3(velocity.x, 0, velocity.z)
+	if sprinting and state == State.NORMAL and is_on_floor() and hv.length() > 2.0:
 		stamina -= SPRINT_DRAIN * dt
 		stamina_delay = STAMINA_DELAY
-	elif state != State.DASH and wallrun_timer <= 0.0:
+	elif state != State.DODGE and wall_plant <= 0.0:
 		stamina_delay -= dt
 		if stamina_delay <= 0.0:
 			stamina = minf(stamina + STAMINA_REGEN * dt, STAMINA_MAX)
-	if stamina <= 0.0:
-		stamina = 0.0
-		if not exhausted:
-			exhausted = true
-			Audio.play("ui_error", -10.0)
-	if exhausted and stamina >= 30.0:
-		exhausted = false
+	stamina = maxf(stamina, 0.0)
+	exhausted = stamina < DODGE_COST and overdrive_time <= 0.0
 
 
 func _spend(amount: float) -> bool:
 	if overdrive_time > 0.0:
 		return true
-	if stamina < amount * 0.5:
+	if stamina < amount:
 		Audio.play("ui_error", -10.0, 1.0, 0.0, 300)
 		return false
-	stamina = maxf(stamina - amount, 0.0)
+	stamina -= amount
 	stamina_delay = STAMINA_DELAY
 	return true
 
@@ -269,97 +370,153 @@ func _update_aim() -> void:
 	weapons.assist_target = info[0]
 	weapons.assist_strength = info[1]
 	var moving := Vector3(velocity.x, 0, velocity.z).length() > 2.0
-	weapons.spread_mult = (1.6 if not is_on_floor() else (1.25 if moving else 1.0)) * (0.35 if weapons.scoped else 1.0)
+	weapons.spread_mult = (1.6 if not is_on_floor() else (1.25 if moving else (0.8 if crouching else 1.0))) * (0.35 if weapons.scoped else 1.0)
 	visual.anim.aim_pitch = clampf(cam.pitch / deg_to_rad(55.0), -1.0, 1.0)
 
 
-# --- NORMAL (ground / air / wall run) --------------------------------------------
+# --- Recoveries from hits ------------------------------------------------------------
+
+## JUMP (or a dodge) while knocked flying lands you on your feet; a dodge gets you up
+## from the floor; dodging out of a stagger ("faint") costs 90 SP.
+func _try_recovery() -> void:
+	if _buffer["jump"] <= 0.0:
+		return
+	var side := _lateral_input()
+	match state:
+		State.KNOCKDOWN:
+			if state_time < THROW_RECOVER_TIME or is_on_floor():
+				return
+			if side != 0.0 and not _spend(DODGE_COST):
+				return
+			_consume("jump")
+			set_state(State.NORMAL)
+			_air_lock = THROW_PATH_LOCK
+			jump_state = true
+			air_dodge_ready = true
+			air_attacks = 0
+			visual.anim.stop_action(0.08)
+			visual.anim.set_base("flip_fall", 0.08, true)
+			visual.anim.play_action("NinjaJump_Start", 1.8, 0.03, 0.2, 0.15, 0.35)
+			_flip_toward(-Vector3(velocity.x, 0, velocity.z), 1.0, 0.42)
+			Audio.play("air_dash", -4.0)
+			VFX.sparks(global_position + Vector3.UP, Vector3.UP, style.get("glow", Color.CYAN), 0.6, 0.5)
+		State.DOWN:
+			if side != 0.0 and stamina >= DODGE_COST:
+				_consume("jump")
+				set_state(State.NORMAL)
+				_start_dodge(side)
+		State.STAGGER:
+			if side != 0.0 and (stamina >= FAINT_COST or overdrive_time > 0.0):
+				_consume("jump")
+				if overdrive_time <= 0.0:
+					stamina -= FAINT_COST
+					stamina_delay = STAMINA_DELAY
+				set_state(State.NORMAL)
+				_start_dodge(side, true)
+
+
+# --- NORMAL (ground / air) ------------------------------------------------------------
 
 func _update_normal(dt: float) -> void:
-	var grounded := is_on_floor()
+	# Launched by a pad: airborne from the first frame (no ground friction on the arc).
+	var grounded := is_on_floor() and not _pad_flight
 	var wish := _wish_dir()
 	if grounded:
 		coyote = COYOTE_TIME
-		air_dashes = 1
 		air_attacks = 0
-		jumped = false
-		wallrun_timer = 0.0
 	else:
 		coyote -= dt
+
+	# Feet planted on a wall for a moment, then the kick.
+	if wall_plant > 0.0:
+		wall_plant -= dt
+		velocity = Vector3.ZERO
+		if wall_plant <= 0.0:
+			_launch_wall_jump()
+		_update_facing(dt)
+		return
+
+	_update_crouch(grounded)
 
 	# Recovery animations are interrupted by movement.
 	if weapons.recovering and wish.length() > 0.2:
 		weapons.recovering = false
 		visual.anim.stop_action(0.12)
 
-	# Horizontal movement.
-	var speed_mult: float = weapons.current().move_speed_mult * (1.2 if overdrive_time > 0.0 else 1.0) * (0.6 if weapons.scoped else 1.0)
-	if wallrun_timer > 0.0:
-		_update_wallrun(dt, wish)
-	elif grounded:
-		var top := (SPRINT_SPEED if sprinting else RUN_SPEED * lerpf(0.45, 1.0, clampf(input_move.length() * 1.25, 0.0, 1.0))) * speed_mult
+	var mob := mobility()
+	var hv := Vector3(velocity.x, 0, velocity.z)
+	if grounded:
+		var top: float
+		if crouching:
+			top = CROUCH_SPEED
+		elif sprinting:
+			top = SPRINT_SPEED * mob
+		else:
+			top = RUN_SPEED * mob * lerpf(0.45, 1.0, clampf(input_move.length() * 1.25, 0.0, 1.0))
 		var target := wish.normalized() * top if wish.length() > 0.05 else Vector3.ZERO
-		var hv := Vector3(velocity.x, 0, velocity.z)
 		var accel := GROUND_ACCEL if target.length() > 0.1 else GROUND_DECEL
-		if hv.length() > 1.0 and target.length() > 0.1 and hv.dot(target) < 0.0:
-			accel *= REVERSE_BONUS
-		# Keep momentum above top speed (e.g. after dashes/pads) but bleed it off smoothly.
+		# Keep extra momentum (jump pads, dodges) but bleed it off smoothly.
 		if hv.length() > top and target.length() > 0.1 and hv.normalized().dot(target.normalized()) > 0.7:
-			hv = hv.move_toward(target, accel * 0.35 * dt)
+			hv = hv.move_toward(target, accel * 0.3 * dt)
 		else:
 			hv = hv.move_toward(target, accel * dt)
-		velocity.x = hv.x
-		velocity.z = hv.z
-	else:
-		var hv := Vector3(velocity.x, 0, velocity.z)
-		if wish.length() > 0.1:
-			var max_air := maxf(hv.length(), RUN_SPEED * speed_mult)
+	elif _air_lock <= 0.0:
+		if sprinting and stamina > 0.0:
+			# Air dash: drive toward sprint speed where the stick points (or ahead).
+			var dir := wish.normalized() if wish.length() > 0.1 else aim_dir_flat()
+			hv = hv.move_toward(dir * maxf(SPRINT_SPEED * mob, hv.length()), AIR_SPRINT_ACCEL * dt)
+		elif wish.length() > 0.1:
+			var max_air := maxf(hv.length(), RUN_SPEED * mob)
 			hv = hv.move_toward(wish * max_air, AIR_ACCEL * dt)
 		elif not _pad_flight:
 			hv = hv.move_toward(Vector3.ZERO, AIR_DRAG * dt)
-		velocity.x = hv.x
-		velocity.z = hv.z
+	velocity.x = hv.x
+	velocity.z = hv.z
 
-	# Vertical.
-	if wallrun_timer <= 0.0:
-		var g_mult := 1.0
-		if jumped and velocity.y > 0.0 and not jump_held:
-			g_mult = JUMP_CUT_GRAVITY
-		# Wall slide: pushing into a wall while falling slows the fall.
-		if not grounded and velocity.y < 0.0 and is_on_wall() and wish.dot(-get_wall_normal()) > 0.3:
-			velocity.y = maxf(velocity.y, -5.0)
-		apply_gravity(dt, g_mult)
+	# Gravity: sprinting in the air makes you drop faster (bunny hops).
+	if sprinting and not grounded:
+		apply_gravity(dt, AIR_DASH_RISE if velocity.y > 0.0 else AIR_DASH_FALL)
+	else:
+		apply_gravity(dt)
 
-	# Jump / wall jump.
+	# JUMP button: jump, side dodge (with left/right), wall jump (mid-jump next to a wall).
 	if _buffer["jump"] > 0.0:
-		if grounded or coyote > 0.0:
-			_consume("jump")
-			_do_jump()
-		elif wallrun_timer > 0.0:
-			_consume("jump")
-			_do_wall_jump(wallrun_normal, true)
-		else:
-			var n := _find_wall(wish)
-			if n != Vector3.ZERO:
-				_consume("jump")
-				_do_wall_jump(n, false)
-
-	# Wall run entry.
-	if not grounded and wallrun_timer <= 0.0 and wallrun_cd <= 0.0:
-		_try_start_wallrun(wish)
-
-	# Dash.
-	if _buffer["dash"] > 0.0 and dash_cd <= 0.0:
-		if grounded or air_dashes > 0:
-			_consume("dash")
-			_start_dash(wish)
+		_handle_jump_button(grounded, wish)
+		if state != State.NORMAL or wall_plant > 0.0:
 			return
 
 	_handle_attack_input(grounded)
-	_update_facing(dt, wish)
+	_update_facing(dt)
+
+
+func _handle_jump_button(grounded: bool, wish: Vector3) -> void:
+	var side := _lateral_input()
+	if grounded or coyote > 0.0:
+		if land_lag > 0.0:
+			return
+		_consume("jump")
+		if side != 0.0:
+			_start_dodge(side)
+		else:
+			_do_jump()
+		return
+	if jump_state:
+		var wall := _find_wall(wish)
+		if not wall.is_empty():
+			_consume("jump")
+			_start_wall_jump(wall["normal"], wall["reverse"])
+			return
+	if side != 0.0 and air_dodge_ready:
+		_consume("jump")
+		_start_dodge(side)
 
 
 func _handle_attack_input(grounded: bool) -> void:
+	# No attacking while crouched.
+	if crouching:
+		_buffer["attack"] = 0.0
+		_buffer["special"] = 0.0
+		return
 	if weapons.is_melee():
 		if _consume("attack"):
 			var ctx := "ground"
@@ -368,7 +525,7 @@ func _handle_attack_input(grounded: bool) -> void:
 					return
 				air_attacks += 1
 				ctx = "air"
-			elif sprinting and Vector3(velocity.x, 0, velocity.z).length() > SPRINT_SPEED * 0.8:
+			elif sprinting and Vector3(velocity.x, 0, velocity.z).length() > SPRINT_SPEED * mobility() * 0.8:
 				ctx = "dash"
 			weapons.press_primary(ctx)
 		if _consume("special"):
@@ -382,65 +539,110 @@ func _handle_attack_input(grounded: bool) -> void:
 			weapons.press_secondary("air" if not grounded else "ground")
 
 
-func _update_facing(dt: float, wish: Vector3) -> void:
-	if is_strafing() and cam:
+func _update_facing(dt: float) -> void:
+	if cam:
 		facing = cam.yaw
-		# Legs follow the movement direction; the spine counter-twists to keep aiming.
-		var hv := Vector3(velocity.x, 0, velocity.z)
-		var offset := 0.0
-		var backward := false
-		if hv.length() > 1.0:
-			var rel := wrapf(Actor.yaw_from_dir(hv.normalized()) - facing, -PI, PI)
-			if absf(rel) > deg_to_rad(105.0):
-				backward = true
-				rel = wrapf(rel - PI, -PI, PI)
-			offset = clampf(rel, deg_to_rad(-65.0), deg_to_rad(65.0))
-		visual_yaw_offset = lerp_angle(visual_yaw_offset, offset, clampf(dt * 10.0, 0.0, 1.0))
-		visual.twist.yaw = -visual_yaw_offset
-		visual.set_meta("backpedal", backward)
-	else:
-		visual_yaw_offset = lerp_angle(visual_yaw_offset, 0.0, clampf(dt * 10.0, 0.0, 1.0))
-		visual.twist.yaw = -visual_yaw_offset
+	var offset := 0.0
+	var backward := false
+	if state == State.DODGE and not dodge_in_air and dodge_time < DODGE_TIME:
+		# Duck-and-slide: the legs turn toward the dodge.
+		offset = wrapf(Actor.yaw_from_dir(dodge_dir) - facing, -PI, PI)
+		visual_yaw_offset = lerp_angle(visual_yaw_offset, offset, clampf(dt * 30.0, 0.0, 1.0))
+		visual.twist.yaw = 0.0
 		visual.set_meta("backpedal", false)
-		if wish.length() > 0.15:
-			var target := Actor.yaw_from_dir(wish.normalized())
-			facing = _rotate_toward(facing, target, 16.0 * dt)
+		return
+	var hv := Vector3(velocity.x, 0, velocity.z)
+	if hv.length() > 1.0 and is_on_floor():
+		# Legs follow the movement direction; the spine counter-twists to keep aiming.
+		var rel := wrapf(Actor.yaw_from_dir(hv.normalized()) - facing, -PI, PI)
+		if absf(rel) > deg_to_rad(105.0):
+			backward = true
+			rel = wrapf(rel - PI, -PI, PI)
+		offset = clampf(rel, deg_to_rad(-65.0), deg_to_rad(65.0))
+	visual_yaw_offset = lerp_angle(visual_yaw_offset, offset, clampf(dt * 12.0, 0.0, 1.0))
+	visual.twist.yaw = -visual_yaw_offset
+	visual.set_meta("backpedal", backward)
 
 
-static func _rotate_toward(from: float, to: float, max_step: float) -> float:
-	var diff := wrapf(to - from, -PI, PI)
-	return from + clampf(diff, -max_step, max_step)
+## Rotates the body once around the horizontal axis so the head leads toward `dir`.
+func _flip_toward(dir: Vector3, turns: float, duration: float) -> void:
+	var d := Vector3(dir.x, 0.0, dir.z)
+	if d.length() < 0.5:
+		d = aim_dir_flat()
+	var local := visual.global_basis.inverse() * d.normalized()
+	local.y = 0.0
+	if local.length() < 0.01:
+		return
+	visual.spin(Vector3.UP.cross(local.normalized()), turns, duration)
 
 
 func _do_jump() -> void:
 	velocity.y = JUMP_VELOCITY
-	jumped = true
+	jump_state = true
+	air_dodge_ready = true
 	coyote = 0.0
-	# Sprint-jump keeps momentum; a small boost in the input direction feels snappy.
-	var wish := _wish_dir()
-	if wish.length() > 0.3:
-		var hv := Vector3(velocity.x, 0, velocity.z)
-		if hv.length() < RUN_SPEED:
-			hv = wish.normalized() * RUN_SPEED * 0.9
-			velocity.x = hv.x
-			velocity.z = hv.z
-	visual.anim.set_base("fall", 0.12, true)
-	visual.anim.play_action("Jump_Start", 1.7, 0.04, 0.25, 0.32, 0.32)
+	if crouching:
+		crouching = false
+		_set_crouch_shape(false)
+	var hv := Vector3(velocity.x, 0, velocity.z)
+	if sprinting:
+		# Sprint jump: a quick low hop (air dash gravity), no somersault.
+		visual.anim.set_base("fall", 0.1, true)
+		visual.anim.play_action("Jump_Start", 1.9, 0.03, 0.2, 0.32, 0.25)
+	else:
+		# The S4 jump is a somersault.
+		visual.anim.set_base("flip_fall", 0.08, true)
+		visual.anim.play_action("NinjaJump_Start", 1.7, 0.03, 0.22, 0.12, 0.3)
+		_flip_toward(hv if hv.length() > 2.0 else aim_dir_flat(), 1.0, 0.52)
 	Audio.play("jump", -4.0)
 	VFX.dust_ring(global_position, 0.6)
 
 
-func _find_wall(wish: Vector3) -> Vector3:
-	# Probe around the player for a wall to kick off.
+# --- Crouch -----------------------------------------------------------------------------
+
+func _update_crouch(grounded: bool) -> void:
+	var want := crouch_held and grounded and not sprinting
+	if want == crouching:
+		return
+	if want:
+		crouching = true
+		_set_crouch_shape(true)
+	elif _can_stand():
+		crouching = false
+		_set_crouch_shape(false)
+
+
+func _set_crouch_shape(on: bool) -> void:
+	var cap := body_shape.shape as CapsuleShape3D
+	cap.height = (1.2 if on else 1.8) * visual_scale
+	body_shape.position.y = cap.height * 0.5
+
+
+func _can_stand() -> bool:
+	var q := PhysicsShapeQueryParameters3D.new()
+	var sphere := SphereShape3D.new()
+	sphere.radius = 0.34
+	q.shape = sphere
+	q.transform = Transform3D(Basis.IDENTITY, global_position + Vector3.UP * 1.45)
+	q.collision_mask = Game.LAYER_WORLD
+	return get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty()
+
+
+# --- Wall jump ---------------------------------------------------------------------------
+
+## Looks for a wall within kicking range. Returns {normal, reverse} or {} if none.
+## `reverse` means the wall's top is below head height: S4's "reverse wall jump"
+## carries you forward over the wall instead of bouncing back.
+func _find_wall(wish: Vector3) -> Dictionary:
 	var space := get_world_3d().direct_space_state
 	var origin := global_position + Vector3.UP * 1.0
 	var dirs: Array[Vector3] = []
 	var hv := Vector3(velocity.x, 0, velocity.z)
-	if wish.length() > 0.1:
-		dirs.append(wish.normalized())
 	if hv.length() > 0.5:
 		dirs.append(hv.normalized())
-	var f := forward()
+	if wish.length() > 0.1:
+		dirs.append(wish.normalized())
+	var f := aim_dir_flat()
 	dirs.append_array([f, -f, Vector3(f.z, 0, -f.x), Vector3(-f.z, 0, f.x)])
 	var best := Vector3.ZERO
 	var best_d := INF
@@ -458,196 +660,137 @@ func _find_wall(wish: Vector3) -> Vector3:
 		var wn := get_wall_normal()
 		if absf(wn.y) < 0.35:
 			best = Vector3(wn.x, 0, wn.z).normalized()
-	# Can't kick the same wall twice in a row too quickly.
-	if best != Vector3.ZERO and best.dot(_last_wall_normal) > 0.9 and _clock - _last_wall_time < 0.35:
-		return Vector3.ZERO
-	return best
+	if best == Vector3.ZERO:
+		return {}
+	if best.dot(_last_wall_normal) > 0.9 and _clock - _last_wall_time < 0.3:
+		return {}
+	var head := global_position + Vector3.UP * 1.75
+	var q2 := PhysicsRayQueryParameters3D.create(head, head - best * (WALL_PROBE + 0.3), Game.LAYER_WORLD)
+	return {"normal": best, "reverse": space.intersect_ray(q2).is_empty()}
 
 
-func _do_wall_jump(n: Vector3, from_run: bool) -> void:
+func _start_wall_jump(n: Vector3, reverse: bool) -> void:
 	if not _spend(WALL_JUMP_COST):
 		return
-	var wish := _wish_dir()
-	var along := Vector3.ZERO
-	if from_run:
-		var hv := Vector3(velocity.x, 0, velocity.z)
-		along = hv - n * hv.dot(n)
-		along = along.normalized() * minf(along.length(), SPRINT_SPEED) * 0.9
-	elif wish.length() > 0.2:
-		var side := wish - n * wish.dot(n)
-		along = side * RUN_SPEED * 0.6
-	velocity = n * WALL_JUMP_OUT + along + Vector3.UP * WALL_JUMP_UP
-	wallrun_timer = 0.0
-	wallrun_cd = 0.25
-	jumped = true
-	air_dashes = 1
+	var hv := Vector3(velocity.x, 0, velocity.z)
+	var out: Vector3
+	if reverse:
+		var ahead := hv if hv.dot(-n) > 1.0 else -n
+		out = ahead.normalized() * clampf(hv.length(), WALL_JUMP_MIN_OUT, WALL_JUMP_MAX_OUT)
+	else:
+		# Mirror the approach: the angle going in equals the angle coming out.
+		var into := hv.dot(n)
+		out = hv - 2.0 * into * n if into < 0.0 else hv
+		var away := out.dot(n)
+		if away < WALL_JUMP_MIN_OUT:
+			out += n * (WALL_JUMP_MIN_OUT - away)
+		out = out.limit_length(WALL_JUMP_MAX_OUT)
+	_wall_out = out + Vector3.UP * WALL_JUMP_UP
+	_wall_reverse = reverse
+	wall_plant = WALL_PLANT_TIME
+	velocity = Vector3.ZERO
+	sprinting = false
+	jump_state = true
+	air_dodge_ready = true
 	air_attacks = 0
 	_last_wall_normal = n
 	_last_wall_time = _clock
-	facing = Actor.yaw_from_dir((velocity * Vector3(1, 0, 1)).normalized())
-	visual.anim.set_base("flip_fall", 0.15, true)
-	visual.anim.play_action("NinjaJump_Start", 1.6, 0.04, 0.25, 0.12, 0.42)
+	visual.stop_spin()
+	visual.anim.play_action("NinjaJump_Land", 2.2, 0.02, 0.08, 0.05, WALL_PLANT_TIME + 0.04)
 	Audio.play("wall_kick", -1.0)
-	var contact := global_position + Vector3.UP * 1.0 - n * 0.4
+	var contact := global_position + Vector3.UP * 0.6 - n * 0.4
 	VFX.sparks(contact, n, style.get("glow", Color.CYAN), 0.8, 0.6)
 	VFX.shockwave(contact, 0.5, style.get("glow", Color.CYAN))
+
+
+func _launch_wall_jump() -> void:
+	velocity = _wall_out
+	_air_lock = WALL_JUMP_LOCK
+	visual.anim.set_base("flip_fall", 0.06, true)
+	visual.anim.play_action("NinjaJump_Start", 1.8, 0.03, 0.25, 0.12, 0.36)
+	_flip_toward(_wall_out, 1.0, 0.5)
 	Game.vibrate(18)
 	if cam:
 		cam.kick_fov(5.0)
 
 
-func _try_start_wallrun(wish: Vector3) -> void:
-	if velocity.y > 7.0 or velocity.y < -9.0:
-		return
-	var hv := Vector3(velocity.x, 0, velocity.z)
-	if hv.length() < WALLRUN_MIN_SPEED or stamina < WALLRUN_COST:
-		return
-	var n := Vector3.ZERO
-	if is_on_wall():
-		n = get_wall_normal()
-	else:
-		var space := get_world_3d().direct_space_state
-		var origin := global_position + Vector3.UP * 1.0
-		var side := Vector3(hv.z, 0, -hv.x).normalized()
-		for d in [side, -side]:
-			var q := PhysicsRayQueryParameters3D.create(origin, origin + d * 1.05, Game.LAYER_WORLD)
-			var res := space.intersect_ray(q)
-			if not res.is_empty() and absf((res.normal as Vector3).y) < 0.3:
-				n = res.normal
-				break
-	if n == Vector3.ZERO or absf(n.y) > 0.3:
-		return
-	n = Vector3(n.x, 0, n.z).normalized()
-	var vdir := hv.normalized()
-	# Needs to be running along the wall, not into it.
-	if absf(vdir.dot(n)) > 0.62 or (wish.length() > 0.2 and wish.dot(n) > 0.5):
-		return
-	if n.dot(_last_wall_normal) > 0.9 and _clock - _last_wall_time < 0.5:
-		return
-	_spend(WALLRUN_COST)
-	wallrun_timer = WALLRUN_TIME
-	wallrun_normal = n
-	velocity.y = maxf(velocity.y, 3.2)
-	var along := hv - n * hv.dot(n)
-	along = along.normalized() * maxf(along.length(), SPRINT_SPEED * 0.95)
-	velocity.x = along.x
-	velocity.z = along.z
-	air_dashes = 1
-	visual.anim.set_base("wallrun", 0.1)
-	Audio.play("wall_kick", -8.0, 1.3)
+# --- DODGE (JUMP + left/right) ----------------------------------------------------------
 
-
-func _update_wallrun(dt: float, wish: Vector3) -> void:
-	wallrun_timer -= dt
-	var hv := Vector3(velocity.x, 0, velocity.z)
-	var along := hv - wallrun_normal * hv.dot(wallrun_normal)
-	var spd := maxf(along.length(), SPRINT_SPEED * 0.9)
-	along = along.normalized() * spd
-	velocity.x = along.x - wallrun_normal.x * 2.0
-	velocity.z = along.z - wallrun_normal.z * 2.0
-	velocity.y -= gravity * WALLRUN_GRAVITY * dt
-	facing = Actor.yaw_from_dir(along.normalized())
-	# Lean away from the wall.
-	var right := Vector3(cos(facing), 0, -sin(facing))
-	var side := signf(right.dot(wallrun_normal))
-	visual.set_lean(side * 0.35, 0.0)
-	# Leave the wall when it ends, time runs out, or the player steers away.
-	var space := get_world_3d().direct_space_state
-	var origin := global_position + Vector3.UP * 1.0
-	var q := PhysicsRayQueryParameters3D.create(origin, origin - wallrun_normal * 0.9, Game.LAYER_WORLD)
-	var still_wall := not space.intersect_ray(q).is_empty()
-	if wallrun_timer <= 0.0 or not still_wall or is_on_floor() or (wish.length() > 0.3 and wish.dot(wallrun_normal) > 0.6):
-		wallrun_timer = 0.0
-		wallrun_cd = 0.3
-		_last_wall_normal = wallrun_normal
-		_last_wall_time = _clock
-		visual.set_lean(0.0, 0.0)
-	afterimage_timer -= dt
-	if afterimage_timer <= 0.0:
-		afterimage_timer = 0.09
-		visual.spawn_afterimage(style.get("glow", Color.CYAN), 0.25)
-
-
-# --- DASH ---------------------------------------------------------------------------
-
-func _start_dash(wish: Vector3) -> void:
-	var grounded := is_on_floor()
-	if not _spend(DASH_COST if grounded else AIR_DASH_COST):
-		return
-	var dir := wish.normalized() if wish.length() > 0.15 else (-aim_dir_flat() if is_strafing() else forward())
-	dash_dir = dir
-	dash_timer = DASH_TIME
-	dash_cd = DASH_COOLDOWN
-	dash_in_air = not grounded
-	if dash_in_air:
-		air_dashes -= 1
-	invuln = DASH_IFRAMES
+func _start_dodge(side: float, free: bool = false) -> bool:
+	if not free and not _spend(DODGE_COST):
+		return false
+	dodge_side = side
+	dodge_dir = _cam_right() * side
+	dodge_time = 0.0
+	dodge_in_air = not is_on_floor()
+	_dodge_recovering = false
+	sprinting = false
+	_sprint_armed = 0.0
+	if crouching:
+		crouching = false
+		_set_crouch_shape(false)
 	weapons.cancel_attack()
-	set_state(State.DASH)
-	velocity = dir * DASH_SPEED
-	velocity.y = 0.0 if dash_in_air else -1.0
-	# Face the dash direction unless strafing with a gun (then dodge sideways/backward).
-	var rel := 0.0
-	if is_strafing():
-		rel = wrapf(Actor.yaw_from_dir(dir) - facing, -PI, PI)
+	weapons.scoped = false
+	set_state(State.DODGE)
+	velocity.x = dodge_dir.x * DODGE_SPEED
+	velocity.z = dodge_dir.z * DODGE_SPEED
+	if dodge_in_air:
+		# Air dodge: a little lift and a sideways aerial.
+		velocity.y = maxf(velocity.y, AIR_DODGE_LIFT)
+		air_dodge_ready = false
+		visual.anim.play_action("NinjaJump_Start", 1.7, 0.03, 0.2, 0.15, DODGE_TIME + 0.1)
+		visual.spin(Vector3.FORWARD, side, DODGE_TIME + 0.08)
+		Audio.play("air_dash", -3.0)
 	else:
-		facing = Actor.yaw_from_dir(dir)
-		visual.rotation.y = facing
-	if dash_in_air:
-		visual.anim.play_action("NinjaJump_Start", 1.8, 0.03, 0.2, 0.18, DASH_TIME + 0.12)
-		Audio.play("air_dash", -2.0)
-	elif is_strafing() and absf(rel) > deg_to_rad(60.0):
-		visual.anim.play_action("Roll", 2.6, 0.03, 0.18, 0.12, DASH_TIME + 0.14)
-		visual_yaw_offset = rel
-		Audio.play("dash", -2.0)
-	else:
-		visual.anim.play_action("Slide_Start", 2.4, 0.03, 0.2, 0.2, DASH_TIME + 0.1)
-		Audio.play("dash", -2.0)
+		# Ground dodge: duck and slide sideways.
+		velocity.y = -1.0
+		visual.anim.play_action("Slide_Start", 2.3, 0.03, 0.12, 0.28, DODGE_TIME)
+		VFX.dust_ring(global_position, 0.7)
+		Audio.play("dash", -3.0)
 	afterimage_timer = 0.0
-	var glow: Color = style.get("glow", Color.CYAN)
-	VFX.sparks(global_position + Vector3.UP * 0.3, -dir, glow, 0.6, 0.6)
-	if not dash_in_air:
-		VFX.dust_ring(global_position, 0.8)
+	VFX.sparks(global_position + Vector3.UP * 0.4, -dodge_dir, style.get("glow", Color.CYAN), 0.5, 0.5)
 	if cam:
-		cam.kick_fov(9.0)
-	Game.vibrate(12)
+		cam.kick_fov(4.0)
+	Game.vibrate(10)
+	return true
 
 
-func _update_dash(dt: float) -> void:
-	dash_timer -= dt
-	var t := 1.0 - dash_timer / DASH_TIME
-	var spd := lerpf(DASH_SPEED, DASH_EXIT_SPEED, t * t)
-	velocity.x = dash_dir.x * spd
-	velocity.z = dash_dir.z * spd
-	if dash_in_air:
-		velocity.y = 0.0
+func _update_dodge(dt: float) -> void:
+	dodge_time += dt
+	var t := dodge_time
+	if t < DODGE_TIME:
+		var k := t / DODGE_TIME
+		var spd := lerpf(DODGE_SPEED, DODGE_END_SPEED, k * k)
+		velocity.x = dodge_dir.x * spd
+		velocity.z = dodge_dir.z * spd
+		apply_gravity(dt, 0.5 if dodge_in_air else 1.0)
+		afterimage_timer -= dt
+		if afterimage_timer <= 0.0:
+			afterimage_timer = 0.07
+			visual.spawn_afterimage(style.get("glow", Color.CYAN), 0.25)
 	else:
+		# End lag: the weak spot of a dodge (jump or sprint to cancel it).
+		if not _dodge_recovering:
+			_dodge_recovering = true
+			if is_on_floor():
+				visual.anim.play_action("Slide_Exit", 2.2, 0.06, 0.12, 0.0, DODGE_RECOVERY)
+		steer_horizontal(Vector3.ZERO, 30.0, dt)
 		apply_gravity(dt)
-	afterimage_timer -= dt
-	if afterimage_timer <= 0.0:
-		afterimage_timer = 0.05
-		visual.spawn_afterimage(style.get("glow", Color.CYAN), 0.3)
-	# Dash cancels: attack -> dash attack, jump -> momentum jump.
-	if weapons.is_melee() and _consume("attack"):
-		set_state(State.NORMAL)
-		if dash_in_air:
-			air_attacks += 1
-			weapons.press_primary("air")
-		else:
-			weapons.press_primary("dash")
-		return
-	if not dash_in_air and _buffer["jump"] > 0.0 and is_on_floor():
+	_update_facing(dt)
+	# Jump-cancel (JUMP without left/right): a jump straight out of the dodge. From an
+	# air dodge this is a mid-air jump, so dodge/jump chains (wave dashing) cost SP.
+	if t >= DODGE_JUMP_CANCEL and _buffer["jump"] > 0.0 and _lateral_input() == 0.0:
 		_consume("jump")
 		set_state(State.NORMAL)
-		velocity = dash_dir * maxf(spd, SPRINT_SPEED)
+		visual.stop_spin()
 		_do_jump()
 		return
-	if dash_timer <= 0.0:
+	# Sprinting (double-tap) also cancels the end lag.
+	if _dodge_recovering and _sprint_armed > 0.0 and is_on_floor():
 		set_state(State.NORMAL)
-		var exit := DASH_EXIT_SPEED if (sprinting or input_move.length() > 0.5) else RUN_SPEED * 0.8
-		velocity.x = dash_dir.x * exit
-		velocity.z = dash_dir.z * exit
-		visual_yaw_offset = 0.0
+		return
+	if t >= DODGE_TIME + DODGE_RECOVERY:
+		set_state(State.NORMAL)
 
 
 # --- ATTACK -------------------------------------------------------------------------
@@ -663,24 +806,30 @@ func _update_attack(dt: float) -> void:
 		return
 	if weapons.attack_time < weapons.lunge_time:
 		steer_horizontal(weapons.lunge_dir * weapons.lunge_speed, 160.0, dt)
+	elif is_on_floor():
+		# You can keep walking while slashing.
+		steer_horizontal(_wish_dir() * RUN_SPEED * mobility() * ATTACK_WALK, 40.0, dt)
 	else:
-		steer_horizontal(Vector3.ZERO, 45.0, dt)
+		steer_horizontal(Vector3.ZERO, 6.0, dt)
 	if a.air_hang and not is_on_floor():
 		velocity.y = maxf(velocity.y - gravity * 0.3 * dt, -1.5) if weapons.attack_time < a.duration * 0.8 else velocity.y - gravity * dt
 	else:
 		apply_gravity(dt)
-	# Cancels (S4-style): dash or jump out of the recovery frames.
+	# Cancels: JUMP (or a dodge with left/right) or a sprint out of the recovery frames.
 	if weapons.can_cancel():
-		if _buffer["dash"] > 0.0 and dash_cd <= 0.0 and (is_on_floor() or air_dashes > 0):
-			_consume("dash")
-			weapons.cancel_attack()
-			_start_dash(_wish_dir())
-			return
-		if _buffer["jump"] > 0.0 and is_on_floor():
+		var side := _lateral_input()
+		if _buffer["jump"] > 0.0 and (is_on_floor() or (side != 0.0 and air_dodge_ready)):
 			_consume("jump")
 			weapons.cancel_attack()
 			set_state(State.NORMAL)
-			_do_jump()
+			if side != 0.0:
+				_start_dodge(side)
+			else:
+				_do_jump()
+			return
+		if _sprint_armed > 0.0 and is_on_floor() and input_move.y > 0.35:
+			weapons.cancel_attack()
+			set_state(State.NORMAL)
 			return
 	if weapons.is_melee() and _buffer["attack"] > 0.0:
 		_consume("attack")
@@ -694,33 +843,39 @@ func _update_attack(dt: float) -> void:
 func _on_landed(fall_speed: float) -> void:
 	super._on_landed(fall_speed)
 	_pad_flight = false
+	_air_lock = 0.0
 	if state == State.ATTACK and weapons.plunging:
 		weapons.on_plunge_landed()
+		jump_state = false
 		return
-	if state == State.NORMAL or state == State.DASH:
-		if fall_speed > 14.0 and _land_anim_cd <= 0.0:
+	if state == State.NORMAL or state == State.DODGE:
+		if jump_state and air_time > 0.2:
+			# A short delay before the next jump; a gun shot right before landing skips it.
+			land_lag = 0.0 if _clock - _last_shot_time < 0.2 else LANDING_LAG
+		if fall_speed > 14.0 and _land_anim_cd <= 0.0 and state == State.NORMAL:
 			_land_anim_cd = 0.4
 			visual.anim.play_action("Jump_Land", 1.8, 0.03, 0.2, 0.12, 0.28 if input_move.length() < 0.2 else 0.16)
 			VFX.dust_ring(global_position, 1.0 + fall_speed * 0.04)
 			if cam:
 				cam.add_trauma(clampf(fall_speed * 0.012, 0.0, 0.3))
 		Audio.play("land", -6.0 + clampf(fall_speed * 0.3, 0.0, 6.0))
-	jumped = false
+	jump_state = false
+	air_dodge_ready = true
 
 
 func _update_anim(dt: float) -> void:
 	var anim := visual.anim
 	var hv := Vector3(velocity.x, 0, velocity.z)
 	var spd := hv.length()
-	if state == State.DASH:
-		return
-	if wallrun_timer > 0.0:
-		anim.set_base("wallrun", 0.12)
-		anim.base_speed = 1.3
+	if state == State.DODGE:
 		return
 	visual.set_lean(0.0, 0.0)
 	if is_on_floor():
-		if spd < 0.8:
+		if crouching:
+			anim.set_base("crouch" if spd < 0.5 else "crouch_move", 0.16)
+			var back: bool = visual.get_meta("backpedal", false)
+			anim.base_speed = 1.0 if spd < 0.5 else (-1.0 if back else 1.0) * clampf(spd / 2.2, 0.6, 1.4)
+		elif spd < 0.8:
 			anim.set_base("idle_blade" if weapons.is_melee() else "idle", 0.22)
 			anim.base_speed = 1.0
 		else:
@@ -728,7 +883,7 @@ func _update_anim(dt: float) -> void:
 			anim.move_blend = clampf(spd * 0.82, 1.6, 9.5)
 			var back: bool = visual.get_meta("backpedal", false)
 			anim.base_speed = (-1.0 if back else 1.0) * clampf(spd / (6.0 if spd < 9.0 else 8.6), 0.75, 1.45)
-			# Lean into acceleration and turns.
+			# Lean into turns and speed.
 			var lean_roll := clampf(-visual_yaw_offset * 0.08, -0.2, 0.2)
 			visual.set_lean(lean_roll, clampf(spd / SPRINT_SPEED, 0.0, 1.0) * 0.08)
 			_step_timer -= dt * spd
@@ -739,8 +894,15 @@ func _update_anim(dt: float) -> void:
 		if anim.base_state not in ["fall", "flip_fall"]:
 			anim.set_base("fall", 0.2)
 		anim.base_speed = 1.0
-		if anim.base_state == "flip_fall" and velocity.y < -6.0:
+		if anim.base_state == "flip_fall" and velocity.y < -6.0 and not visual.is_spinning():
 			anim.set_base("fall", 0.35)
+		if sprinting:
+			# Air dash: lean forward into the dive.
+			visual.set_lean(0.0, 0.25)
+			afterimage_timer -= dt
+			if afterimage_timer <= 0.0 and stamina > 0.0:
+				afterimage_timer = 0.12
+				visual.spawn_afterimage(style.get("glow", Color.CYAN), 0.2)
 
 
 # --- Combat callbacks -------------------------------------------------------------
@@ -772,14 +934,21 @@ func take_hit(hit: HitInfo) -> bool:
 		Game.vibrate(30 if hit.reaction < HitInfo.Reaction.KNOCKDOWN else 70)
 		if cam:
 			cam.add_trauma(0.25 if hit.reaction < HitInfo.Reaction.KNOCKDOWN else 0.5)
-		dash_timer = 0.0
-		wallrun_timer = 0.0
+		if state != State.NORMAL and state != State.ATTACK and state != State.DODGE:
+			# Hit reactions stop sprints, wall jumps and crouching.
+			sprinting = false
+			wall_plant = 0.0
+			visual.stop_spin()
+			if crouching:
+				crouching = false
+				_set_crouch_shape(false)
 	return ok
 
 
 func on_recoil_jump() -> void:
-	jumped = false
-	air_dashes = 1
+	jump_state = true
+	air_dodge_ready = true
+	sprinting = false
 	if state != State.NORMAL:
 		set_state(State.NORMAL)
 	visual.anim.set_base("flip_fall", 0.1, true)
@@ -792,14 +961,16 @@ func launch(v: Vector3) -> void:
 		return
 	if state == State.ATTACK:
 		weapons.cancel_attack()
-	if state == State.DASH or state == State.ATTACK:
+	if state == State.DODGE or state == State.ATTACK:
 		set_state(State.NORMAL)
 	velocity = v
-	jumped = false
+	jump_state = false
+	sprinting = false
+	wall_plant = 0.0
 	_pad_flight = true
-	air_dashes = 1
+	air_dodge_ready = true
 	air_attacks = 0
-	wallrun_timer = 0.0
+	visual.stop_spin()
 	visual.anim.set_base("flip_fall", 0.1, true)
 	visual.anim.play_action("NinjaJump_Start", 1.3, 0.04, 0.3, 0.05, 0.5)
 	if cam:

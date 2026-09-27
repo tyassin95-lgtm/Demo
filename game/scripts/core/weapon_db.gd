@@ -76,7 +76,11 @@ class Weapon:
 	var secondary_cooldown := 1.0
 	var aim_assist_deg := 4.0
 	var tracer_width := 0.05
-	var move_speed_mult := 1.0
+	## Movement speed while holding the weapon, relative to the fastest weapons
+	## (S4 League mobility: dagger/handgun 100 %, swords 92 %, rifles 83 %, shotguns 79 %).
+	var move_speed_mult := 0.83
+	## Movement speed while firing / scoped.
+	var move_speed_firing := 0.83
 	var combo: Dictionary = {}
 
 
@@ -228,7 +232,8 @@ static func _build() -> void:
 	w.secondary = Secondary.HEAVY
 	w.color = Color(0.25, 0.95, 1.0)
 	w.combo = {"ground": "blade_1", "dash": "blade_dash", "air": "blade_air", "heavy": "blade_heavy"}
-	w.move_speed_mult = 1.05
+	w.move_speed_mult = 0.92
+	w.move_speed_firing = 0.92
 	_weapons[w.id] = w
 
 	w = Weapon.new()
@@ -254,6 +259,8 @@ static func _build() -> void:
 	w.sfx = "rifle_shot"
 	w.secondary_cooldown = 6.0
 	w.aim_assist_deg = 5.0
+	w.move_speed_mult = 0.83
+	w.move_speed_firing = 0.83
 	_weapons[w.id] = w
 
 	w = Weapon.new()
@@ -284,6 +291,8 @@ static func _build() -> void:
 	w.secondary_cooldown = 1.1
 	w.aim_assist_deg = 7.0
 	w.tracer_width = 0.035
+	w.move_speed_mult = 0.79
+	w.move_speed_firing = 0.75
 	_weapons[w.id] = w
 
 	w = Weapon.new()
@@ -312,7 +321,8 @@ static func _build() -> void:
 	w.secondary_cooldown = 0.25
 	w.aim_assist_deg = 3.0
 	w.tracer_width = 0.12
-	w.move_speed_mult = 0.95
+	w.move_speed_mult = 0.83
+	w.move_speed_firing = 0.67
 	_weapons[w.id] = w
 
 	# Enemy variants (lower damage so fights feel fair on a touchscreen).
