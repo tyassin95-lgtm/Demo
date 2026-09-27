@@ -40,6 +40,10 @@ const DODGE_TIME := 0.28
 const DODGE_RECOVERY := 0.22
 const DODGE_JUMP_CANCEL := 0.1
 const AIR_DODGE_LIFT := 3.8
+## Ground dodges are a low sideways dive: a small hop under reduced gravity.
+const DODGE_HOP := 3.2
+## Head-first corkscrew flight after a wall kick.
+const FLIGHT_TIME := 0.5
 const WALL_JUMP_COST := 20.0
 const WALL_JUMP_UP := 11.6
 const WALL_JUMP_MIN_OUT := 5.5
@@ -110,6 +114,8 @@ var _last_wall_time := -10.0
 var _last_shot_time := -10.0
 var _air_lock := 0.0
 var _dodge_recovering := false
+var _flight_time := 0.0
+var _flight_dir := Vector3.ZERO
 var _step_timer := 0.0
 ## Set by jump pads: no air drag until landing so ballistic arcs stay exact.
 var _pad_flight := false
@@ -135,6 +141,7 @@ func _ready() -> void:
 	weapons.setup(["arc_blade", "pulse_rifle", "scatter_cannon", "rail_lancer"])
 	weapons.hit_landed.connect(_on_hit_landed)
 	weapons.fired.connect(func(_id: String) -> void: _last_shot_time = _clock)
+	visual.enable_foot_trails(Color(0.35, 0.75, 1.0))
 	Game.player = self
 	cam = PlayerCamera.new()
 	cam.name = "PlayerCamera"
@@ -281,6 +288,9 @@ func _actor_update(dt: float) -> void:
 		visual_yaw_offset = 0.0
 		visual.twist.yaw = 0.0
 		visual.set_lean(0.0, 0.0)
+		visual.clear_pose()
+		visual.set_foot_trails(false)
+		_flight_time = 0.0
 		return
 	match state:
 		State.NORMAL:
@@ -291,6 +301,7 @@ func _actor_update(dt: float) -> void:
 			_update_attack(dt)
 	weapons.update(dt)
 	_update_anim(dt)
+	_update_pose()
 
 
 func _update_timers(dt: float) -> void:
@@ -299,6 +310,7 @@ func _update_timers(dt: float) -> void:
 		health = minf(health + 5.0 * dt, max_health)
 	land_lag -= dt
 	_air_lock -= dt
+	_flight_time = maxf(_flight_time - dt, 0.0)
 	_land_anim_cd -= dt
 	if combo > 0:
 		combo_timer -= dt
@@ -544,10 +556,8 @@ func _update_facing(dt: float) -> void:
 		facing = cam.yaw
 	var offset := 0.0
 	var backward := false
-	if state == State.DODGE and not dodge_in_air and dodge_time < DODGE_TIME:
-		# Duck-and-slide: the legs turn toward the dodge.
-		offset = wrapf(Actor.yaw_from_dir(dodge_dir) - facing, -PI, PI)
-		visual_yaw_offset = lerp_angle(visual_yaw_offset, offset, clampf(dt * 30.0, 0.0, 1.0))
+	if state == State.DODGE:
+		visual_yaw_offset = lerp_angle(visual_yaw_offset, 0.0, clampf(dt * 30.0, 0.0, 1.0))
 		visual.twist.yaw = 0.0
 		visual.set_meta("backpedal", false)
 		return
@@ -698,17 +708,19 @@ func _start_wall_jump(n: Vector3, reverse: bool) -> void:
 	visual.stop_spin()
 	visual.anim.play_action("NinjaJump_Land", 2.2, 0.02, 0.08, 0.05, WALL_PLANT_TIME + 0.04)
 	Audio.play("wall_kick", -1.0)
-	var contact := global_position + Vector3.UP * 0.6 - n * 0.4
+	var contact := global_position + Vector3.UP * 0.9 - n * 0.38
 	VFX.sparks(contact, n, style.get("glow", Color.CYAN), 0.8, 0.6)
-	VFX.shockwave(contact, 0.5, style.get("glow", Color.CYAN))
+	VFX.shockwave(contact, 0.55, style.get("glow", Color.CYAN), n)
 
 
 func _launch_wall_jump() -> void:
 	velocity = _wall_out
 	_air_lock = WALL_JUMP_LOCK
-	visual.anim.set_base("flip_fall", 0.06, true)
-	visual.anim.play_action("NinjaJump_Start", 1.8, 0.03, 0.25, 0.12, 0.36)
-	_flip_toward(_wall_out, 1.0, 0.5)
+	# Kick off into a head-first corkscrew flight along the new direction.
+	_flight_time = FLIGHT_TIME
+	_flight_dir = Vector3(_wall_out.x, 0.0, _wall_out.z)
+	visual.anim.set_base("fall", 0.06, true)
+	visual.anim.play_action("Jump", 1.0, 0.04, 0.2, 0.2, FLIGHT_TIME)
 	Game.vibrate(18)
 	if cam:
 		cam.kick_fov(5.0)
@@ -734,17 +746,16 @@ func _start_dodge(side: float, free: bool = false) -> bool:
 	set_state(State.DODGE)
 	velocity.x = dodge_dir.x * DODGE_SPEED
 	velocity.z = dodge_dir.z * DODGE_SPEED
+	# A feet-first sideways dive with a corkscrew roll (see _update_pose).
+	visual.stop_spin()
+	_flight_time = 0.0
+	visual.anim.play_action("Jump", 1.0, 0.04, 0.12, 0.2, DODGE_TIME + 0.06)
 	if dodge_in_air:
-		# Air dodge: a little lift and a sideways aerial.
 		velocity.y = maxf(velocity.y, AIR_DODGE_LIFT)
 		air_dodge_ready = false
-		visual.anim.play_action("NinjaJump_Start", 1.7, 0.03, 0.2, 0.15, DODGE_TIME + 0.1)
-		visual.spin(Vector3.FORWARD, side, DODGE_TIME + 0.08)
 		Audio.play("air_dash", -3.0)
 	else:
-		# Ground dodge: duck and slide sideways.
-		velocity.y = -1.0
-		visual.anim.play_action("Slide_Start", 2.3, 0.03, 0.12, 0.28, DODGE_TIME)
+		velocity.y = DODGE_HOP
 		VFX.dust_ring(global_position, 0.7)
 		Audio.play("dash", -3.0)
 	afterimage_timer = 0.0
@@ -763,7 +774,7 @@ func _update_dodge(dt: float) -> void:
 		var spd := lerpf(DODGE_SPEED, DODGE_END_SPEED, k * k)
 		velocity.x = dodge_dir.x * spd
 		velocity.z = dodge_dir.z * spd
-		apply_gravity(dt, 0.5 if dodge_in_air else 1.0)
+		apply_gravity(dt, 0.5 if dodge_in_air else 0.6)
 		afterimage_timer -= dt
 		if afterimage_timer <= 0.0:
 			afterimage_timer = 0.07
@@ -772,8 +783,7 @@ func _update_dodge(dt: float) -> void:
 		# End lag: the weak spot of a dodge (jump or sprint to cancel it).
 		if not _dodge_recovering:
 			_dodge_recovering = true
-			if is_on_floor():
-				visual.anim.play_action("Slide_Exit", 2.2, 0.06, 0.12, 0.0, DODGE_RECOVERY)
+			visual.anim.play_action("Jump_Land", 1.6, 0.05, 0.14, 0.1, DODGE_RECOVERY)
 		steer_horizontal(Vector3.ZERO, 30.0, dt)
 		apply_gravity(dt)
 	_update_facing(dt)
@@ -838,6 +848,30 @@ func _update_attack(dt: float) -> void:
 		weapons.press_secondary("ground")
 
 
+## Procedural whole-body poses: the dodge dive and the wall-jump flight.
+func _update_pose() -> void:
+	if state == State.DODGE:
+		var t := dodge_time
+		var amount := clampf(t / 0.06, 0.0, 1.0)
+		if t >= DODGE_TIME:
+			amount = 1.0 - clampf((t - DODGE_TIME) / (DODGE_RECOVERY * 0.6), 0.0, 1.0)
+		var roll := dodge_side * TAU * clampf(t / DODGE_TIME, 0.0, 1.0)
+		visual.dive_pose(visual.global_basis.inverse() * dodge_dir, false, amount, roll, 0.0 if dodge_in_air else 0.3)
+		visual.set_foot_trails(t < DODGE_TIME + 0.05)
+		return
+	if _flight_time > 0.0 and state == State.NORMAL and not is_on_floor():
+		var k := 1.0 - _flight_time / FLIGHT_TIME
+		var amount := clampf(k / 0.15, 0.0, 1.0) * clampf(_flight_time / 0.12, 0.0, 1.0)
+		var hv := Vector3(velocity.x, 0.0, velocity.z)
+		var d := hv if hv.length() > 0.5 else _flight_dir
+		visual.dive_pose(visual.global_basis.inverse() * d, true, amount, TAU * k)
+		visual.set_foot_trails(true)
+		return
+	visual.clear_pose()
+	# Air dash (sprinting in mid-air) streams light from the feet too.
+	visual.set_foot_trails(sprinting and not is_on_floor() and stamina > 0.0)
+
+
 # --- Landing / animation --------------------------------------------------------------
 
 func _on_landed(fall_speed: float) -> void:
@@ -848,11 +882,13 @@ func _on_landed(fall_speed: float) -> void:
 		weapons.on_plunge_landed()
 		jump_state = false
 		return
+	_flight_time = 0.0
 	if state == State.NORMAL or state == State.DODGE:
 		if jump_state and air_time > 0.2:
 			# A short delay before the next jump; a gun shot right before landing skips it.
 			land_lag = 0.0 if _clock - _last_shot_time < 0.2 else LANDING_LAG
-		if fall_speed > 14.0 and _land_anim_cd <= 0.0 and state == State.NORMAL:
+		# Big jumps and wall-jump flights end in a crouching landing.
+		if (fall_speed > 11.0 or air_time > 0.6) and _land_anim_cd <= 0.0 and state == State.NORMAL:
 			_land_anim_cd = 0.4
 			visual.anim.play_action("Jump_Land", 1.8, 0.03, 0.2, 0.12, 0.28 if input_move.length() < 0.2 else 0.16)
 			VFX.dust_ring(global_position, 1.0 + fall_speed * 0.04)
@@ -967,6 +1003,7 @@ func launch(v: Vector3) -> void:
 	jump_state = false
 	sprinting = false
 	wall_plant = 0.0
+	_flight_time = 0.0
 	_pad_flight = true
 	air_dodge_ready = true
 	air_attacks = 0

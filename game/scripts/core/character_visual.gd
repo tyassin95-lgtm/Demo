@@ -6,6 +6,7 @@ extends Node3D
 const ANIM_LIB := preload("res://assets/characters/mannequin_anims.res")
 const CHAR_SHADER := preload("res://shaders/character.gdshader")
 const GHOST_SHADER := preload("res://shaders/ghost.gdshader")
+const TRAIL_SHADER := preload("res://shaders/trail.gdshader")
 const SKELETON_PATH := "Armature/Skeleton3D"
 
 ## Grip setup, in right-hand bone space. The mannequin's hand bone has +Y along the
@@ -58,6 +59,9 @@ var _spin_angle := 0.0
 var _spin_time := 0.0
 var _spin_dur := 0.0
 var _spin_pivot := 0.95
+## Extra whole-body transform (dives, superman flights), applied on top of lean/spin.
+var pose_offset := Transform3D.IDENTITY
+var _foot_trails: Array[TrailRibbon] = []
 
 static var _pack_mesh: ArrayMesh
 
@@ -343,6 +347,56 @@ func stop_spin() -> void:
 	_spin_dur = 0.0
 
 
+## Lays the body along `dir_local` (this node's space): feet first (side dodges) or
+## head first (wall-jump flights), rolled `roll` radians around its length (the
+## corkscrew) and lowered by `drop` metres. `amount` 0..1 blends from upright.
+func dive_pose(dir_local: Vector3, head_first: bool, amount: float, roll: float, drop: float = 0.0) -> void:
+	if amount <= 0.001:
+		pose_offset = Transform3D.IDENTITY
+		return
+	var d := Vector3(dir_local.x, 0.0, dir_local.z)
+	d = d.normalized() if d.length() > 0.01 else Vector3.FORWARD
+	var along := d if head_first else -d
+	var tilt_axis := Vector3.UP.cross(along).normalized()
+	var b := Basis(along, roll * amount) * Basis(tilt_axis, PI * 0.5 * amount)
+	var pivot := Vector3(0.0, 0.95, 0.0)
+	pose_offset = Transform3D(b, pivot - b * pivot - Vector3(0.0, drop * amount, 0.0))
+
+
+func clear_pose() -> void:
+	pose_offset = Transform3D.IDENTITY
+
+
+## Glowing ribbons that stream from the feet during dodges, kicks and flights.
+func enable_foot_trails(color: Color) -> void:
+	if not _foot_trails.is_empty() or skeleton == null:
+		return
+	for side in ["l", "r"]:
+		var foot := BoneAttachment3D.new()
+		foot.bone_name = "foot_" + side
+		skeleton.add_child(foot)
+		var toe := BoneAttachment3D.new()
+		toe.bone_name = "ball_" + side
+		skeleton.add_child(toe)
+		var tr := TrailRibbon.new()
+		var m := ShaderMaterial.new()
+		m.shader = TRAIL_SHADER
+		m.set_shader_parameter("color", Vector3(color.r, color.g, color.b))
+		m.set_shader_parameter("intensity", 3.0)
+		tr.material_override = m
+		tr.base_node = foot
+		tr.tip_node = toe
+		tr.point_life = 0.24
+		tr.max_samples = 16
+		add_child(tr)
+		_foot_trails.append(tr)
+
+
+func set_foot_trails(on: bool) -> void:
+	for t in _foot_trails:
+		t.emitting = on
+
+
 func is_spinning() -> bool:
 	return _spin_dur > 0.0
 
@@ -386,7 +440,7 @@ func tick(delta: float) -> void:
 		origin = pivot - r * pivot
 		if k >= 1.0:
 			_spin_dur = 0.0
-	model.transform = Transform3D(b, origin)
+	model.transform = pose_offset * Transform3D(b, origin)
 	_gun_kick = move_toward(_gun_kick, 0.0, delta * 9.0)
 	if current_gun:
 		var gm := current_gun.get_node("Model") as Node3D

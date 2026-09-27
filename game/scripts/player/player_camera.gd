@@ -10,15 +10,15 @@ const TOUCH_SCALE := 0.0042
 const MOUSE_SCALE := 0.0024
 ## Horizontal camera offset per view: centred (character slightly left of the
 ## crosshair), right shoulder, left shoulder.
-const SIDE_OFFSETS := [0.28, 0.62, -0.62]
+const SIDE_OFFSETS := [0.18, 0.62, -0.62]
 
 var target: Player
 var camera: Camera3D
 var yaw := 0.0
-var pitch := deg_to_rad(-12.0)
-var distance := 3.7
-var height := 1.6
-var base_fov := 72.0
+var pitch := deg_to_rad(-5.0)
+var distance := 3.9
+var height := 1.62
+var base_fov := 60.0
 var hitmarker_time := 0.0
 var hitmarker_kill := false
 
@@ -27,9 +27,9 @@ var _fov_kick := 0.0
 var _trauma := 0.0
 var _shake_t := 0.0
 var _pivot := Vector3.ZERO
-var _cur_dist := 3.7
+var _cur_dist := 3.9
 var _assist_angle := 99.0
-var _side := 0.28
+var _side := 0.18
 var _sphere := SphereShape3D.new()
 var _noise := FastNoiseLite.new()
 

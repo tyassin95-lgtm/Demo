@@ -40,6 +40,7 @@ var difficulty := 1.0
 var nav: NavigationAgent3D
 var _dash_dir := Vector3.ZERO
 var _dash_time := 0.0
+var _dodge_side := 1.0
 var _pad_target: JumpPad = null
 var _flight := 0.0
 var _laser: MeshInstance3D
@@ -183,6 +184,7 @@ func _actor_update(dt: float) -> void:
 		return
 	if _update_reaction_states(dt):
 		_laser.visible = false
+		visual.clear_pose()
 		if state == State.KNOCKDOWN or state == State.DOWN:
 			super_armor = false
 		if ai == AI.WINDUP:
@@ -535,6 +537,7 @@ func _start_dodge(side: float) -> void:
 	var fwd := forward()
 	_dash_dir = Vector3(-fwd.z, 0.0, fwd.x) * side
 	_dash_time = 0.0
+	_dodge_side = side
 	set_state(State.DODGE)
 	velocity.x = _dash_dir.x * DODGE_SPEED
 	velocity.z = _dash_dir.z * DODGE_SPEED
@@ -543,8 +546,9 @@ func _start_dodge(side: float) -> void:
 		visual.anim.play_action("NinjaJump_Start", 1.7, 0.03, 0.2, 0.15, DODGE_TIME + 0.1)
 		visual.spin(Vector3.FORWARD, side, DODGE_TIME + 0.12)
 	else:
-		visual.anim.play_action("Slide_Start", 2.3, 0.03, 0.12, 0.28, DODGE_TIME)
-		visual_yaw_offset = wrapf(Actor.yaw_from_dir(_dash_dir) - facing, -PI, PI)
+		# Feet-first sideways dive with a corkscrew (see _dodge_motion).
+		velocity.y = 3.2
+		visual.anim.play_action("Jump", 1.0, 0.04, 0.12, 0.2, DODGE_TIME + 0.06)
 	Audio.play_at("dash", global_position, -6.0)
 	visual.spawn_afterimage(style.get("glow", Color.RED), 0.25)
 
@@ -568,12 +572,18 @@ func _dodge_motion(dt: float) -> void:
 		var spd := lerpf(DODGE_SPEED, 5.0, k * k)
 		velocity.x = _dash_dir.x * spd
 		velocity.z = _dash_dir.z * spd
+		apply_gravity(dt, 0.6)
 	else:
 		steer_horizontal(Vector3.ZERO, 30.0, dt)
-		visual_yaw_offset = lerp_angle(visual_yaw_offset, 0.0, clampf(dt * 12.0, 0.0, 1.0))
-	apply_gravity(dt)
+		apply_gravity(dt)
+	if kind != Kind.STRIKER:
+		var amount := clampf(_dash_time / 0.06, 0.0, 1.0)
+		if _dash_time >= DODGE_TIME:
+			amount = 1.0 - clampf((_dash_time - DODGE_TIME) / 0.12, 0.0, 1.0)
+		var roll := _dodge_side * TAU * clampf(_dash_time / DODGE_TIME, 0.0, 1.0)
+		visual.dive_pose(visual.global_basis.inverse() * _dash_dir, false, amount, roll, 0.3)
 	if _dash_time >= DODGE_TIME + 0.2:
-		visual_yaw_offset = 0.0
+		visual.clear_pose()
 		set_state(State.NORMAL)
 
 

@@ -468,11 +468,14 @@ func _slash_one(xf: Transform3D, color: Color, life: float) -> void:
 	tw.tween_callback(s.hide)
 
 
-func shockwave(pos: Vector3, radius: float, color: Color) -> void:
+## Expanding ring. `normal` orients it (UP = on the floor; a wall normal = on the wall).
+func shockwave(pos: Vector3, radius: float, color: Color, normal: Vector3 = Vector3.UP) -> void:
 	var r := _next("ring") as MeshInstance3D
 	if r == null:
 		return
-	r.global_transform = Transform3D(Basis(), pos + Vector3.UP * 0.08)
+	var y := normal.normalized()
+	var x := y.cross(Vector3.UP if absf(y.y) < 0.9 else Vector3.RIGHT).normalized()
+	r.global_transform = Transform3D(Basis(x, y, x.cross(y)), pos + y * 0.08)
 	r.scale = Vector3.ONE * 0.3
 	var m := r.material_override as StandardMaterial3D
 	m.albedo_color = Color(color.r * 2.5, color.g * 2.5, color.b * 2.5)
